@@ -42,9 +42,9 @@ To apply a gate to qubit $k$ without a $2^n \times 2^n$ matrix:
 * [x] **Measurement:** Implement a `measure()` function using `std::discrete_distribution` to collapse the state based on $| \alpha |^2$.
 
 ### Phase 4: OpenQASM parser
-* [ ] **Lexer:** Write a simple string parser to read `.qasm` files line by line.
-* [ ] **Command mapping:** Map strings like `"h q[0]"` to your C++ function `state.hGate(0)`.
-* [ ] **Circuit runner:** Create a `QuantumCircuit` class that loads a file and executes the gates in sequence.
+* [x] **Lexer:** Write a simple string parser to read `.qasm` files line by line.
+* [x] **Command mapping:** Map strings like `"h q[0]"` to your C++ function `state.hGate(0)`.
+* [x] **Circuit runner:** Create a `QuantumCircuit` class that loads a file and executes the gates in sequence.
 
 ### Phase 5: Hardware acceleration
 * [ ] **OpenMP (CPU):** Add `#pragma omp parallel for` to your gate application loops. This will immediately use all your CPU threads.

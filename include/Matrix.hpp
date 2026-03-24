@@ -2,7 +2,7 @@
  * Project: qubby
  * File name: Matrix.hpp
  * Author: Cannelle Gourdet - lankley
- * File description: ...
+ * File description: Defines the Matrix struct, a 2×2 complex matrix used to represent single-qubit gates.
  */
 
 #ifndef MATRIX_HPP_
