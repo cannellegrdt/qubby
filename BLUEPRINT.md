@@ -50,3 +50,18 @@ To apply a gate to qubit $k$ without a $2^n \times 2^n$ matrix:
 * [x] **OpenMP (CPU):** Add `#pragma omp parallel for` to your gate application loops. This will immediately use all your CPU threads.
 * [x] **SYCL (GPU):** Install **Intel oneAPI Base Toolkit**.
 * [x] **Compute kernel:** Write the gate application loop as a SYCL kernel to offload the work to the Iris Xe's 96 Execution Units.
+
+### Phase 6: Parametric gates & extended gate set
+* [ ] **Rotation gates:** Implement `Rx(θ)`, `Ry(θ)`, `Rz(θ)` — arbitrary single-qubit rotations around the Bloch sphere axes.
+* [ ] **Multi-qubit gates:** Implement `swapGate(int q0, int q1)` and `toffoliGate(int c0, int c1, int target)` (Controlled-Controlled-NOT).
+* [ ] **OpenQASM 2.0 support:** Extend the parser to handle register declarations (`qreg q[n];`), parametric gates (`rx(pi/2) q[0]`), and multi-line comments.
+
+### Phase 7: Quantum algorithms
+* [ ] **Deutsch-Jozsa:** Determine whether a function is constant or balanced with a single query — the first demonstration of quantum advantage.
+* [ ] **Grover's algorithm:** Implement amplitude amplification to search an unstructured database in $O(\sqrt{N})$ instead of $O(N)$.
+* [ ] **Quantum Fourier Transform (QFT):** Implement QFT as a building block for more advanced algorithms (e.g. Shor's).
+
+### Phase 8: Observability & benchmarking
+* [ ] **Probability distribution display:** Print the amplitude distribution of all basis states after a circuit run.
+* [ ] **ASCII circuit drawer:** Render the gate sequence as a readable ASCII diagram in the terminal.
+* [ ] **OpenMP vs SYCL benchmark:** Measure and compare wall-clock time for `applyGate` vs `applyGateSYCL` on large qubit counts (20–25 qubits).
