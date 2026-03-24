@@ -20,8 +20,10 @@ TEST_DIR	:=	tests
 UNIT_DIR	:=	$(TEST_DIR)/unit
 FUNC_DIR	:=	$(TEST_DIR)/functional
 
-SRCS	:=	$(shell find $(SRC_DIR) -name '*.cpp' 2>/dev/null)
+SRCS	:=	$(shell find $(SRC_DIR) -name '*.cpp' ! -name '*.sycl.cpp' 2>/dev/null)
 OBJS	:=	$(patsubst $(SRC_DIR)/%.cpp, $(OBJ_DIR)/%.o, $(SRCS))
+
+SYCL_ALL_SRCS	:=	$(shell find $(SRC_DIR) -name '*.cpp' 2>/dev/null)
 
 UNIT_BIN	:=	$(TEST_DIR)/unit_tests
 FUNC_SCRIPT	:=	$(FUNC_DIR)/functional_tests.sh
@@ -36,6 +38,11 @@ COV_DIR	:=	coverage
 
 SYCL_CXX	:=	icpx
 SYCL_FLAGS	:=	-fsycl -std=c++20 -Wall
+
+SYCL_OBJ_DIR	:=	obj/sycl
+SYCL_TEST_BIN	:=	$(TEST_DIR)/sycl_tests
+SYCL_SRCS	:=	$(filter-out $(SRC_DIR)/main.cpp, $(SYCL_ALL_SRCS))
+SYCL_OBJS	:=	$(patsubst $(SRC_DIR)/%.cpp, $(SYCL_OBJ_DIR)/%.o, $(SYCL_SRCS))
 
 
 all:	$(NAME)
@@ -52,10 +59,11 @@ re:	fclean	all
 clean:
 	$(RM) -r $(OBJ_DIR)
 	$(RM) -r $(COV_DIR)
-	find . -name '*.gcno' -o -name '*.gcda' | xargs $(RM) -f 2>/dev/null; true
+	find . \( -name '*.gcno' -o -name '*.gcda' -o -name '*.gcov' \) | xargs $(RM) -f 2>/dev/null; true
 
 fclean:	clean
-	$(RM) $(NAME) $(UNIT_BIN)
+	$(RM) $(NAME) $(UNIT_BIN) $(SYCL_TEST_BIN)
+	$(RM) -r $(SYCL_OBJ_DIR)
 
 unit_tests:	$(UNIT_BIN)
 
@@ -66,10 +74,10 @@ $(UNIT_BIN):	$(UNIT_SRCS) $(filter-out $(OBJ_DIR)/main.o, $(OBJS))
 functional_tests:	all
 	@bash $(FUNC_SCRIPT)
 
-run_tests: unit_tests functional_tests
-	@echo "\n── Unit tests ──────────────────────────────────────────"
+run_tests: unit_tests
+	@echo "── Unit tests ──────────────────────────────────────────"
 	./$(UNIT_BIN) --color=always
-	@echo "\n── Functional tests ────────────────────────────────────"
+	@echo "\n"
 	@bash $(FUNC_SCRIPT)
 
 coverage:	CXXFLAGS += $(COVFLAGS)
@@ -87,7 +95,23 @@ debug:	OPTFLAGS  = -O0
 debug:	re
 
 sycl:
-	$(SYCL_CXX) $(SYCL_FLAGS) $(INC_FLAGS) $(SRCS) -o $(NAME)_sycl
+	@command -v $(SYCL_CXX) >/dev/null 2>&1 || \
+	  { echo "Error: $(SYCL_CXX) not found — install Intel oneAPI Base Toolkit first."; exit 1; }
+	$(SYCL_CXX) $(SYCL_FLAGS) $(INC_FLAGS) -DSYCL_ENABLED $(SYCL_ALL_SRCS) -o $(NAME)_sycl
+
+$(SYCL_OBJ_DIR)/%.o:	$(SRC_DIR)/%.cpp
+	@mkdir -p $(dir $@)
+	$(SYCL_CXX) $(SYCL_FLAGS) $(INC_FLAGS) -DSYCL_ENABLED -c $< -o $@
+
+$(SYCL_TEST_BIN):	$(UNIT_DIR)/test_sycl.cpp $(SYCL_OBJS)
+	@mkdir -p $(TEST_DIR)
+	$(SYCL_CXX) $(SYCL_FLAGS) $(INC_FLAGS) -DSYCL_ENABLED $^ $(LIBS) -o $@
+
+sycl_tests:
+	@command -v $(SYCL_CXX) >/dev/null 2>&1 || \
+	  { echo "Error: $(SYCL_CXX) not found — install Intel oneAPI Base Toolkit first."; exit 1; }
+	@$(MAKE) --no-print-directory $(SYCL_TEST_BIN)
+	./$(SYCL_TEST_BIN) --color=always
 
 format:
 	find $(SRC_DIR) $(INC_DIR) $(TEST_DIR) -name '*.cpp' -o -name '*.hpp' \
@@ -110,10 +134,11 @@ help:
 	@echo "  coverage         Build with gcov, run tests, generate HTML report"
 	@echo "  debug            Build with ASan/UBSan + no optimisations"
 	@echo "  sycl             Build with Intel oneAPI (icpx -fsycl)"
+	@echo "  sycl_tests       Build & run SYCL unit tests (requires icpx)"
 	@echo "  format           Run clang-format on all sources"
 	@echo "  lint             Run clang-tidy on all sources"
 
 
 .PHONY: all re clean fclean	\
 		unit_tests functional_tests run_tests coverage	\
-		debug sycl format lint help
+		debug sycl sycl_tests format lint help

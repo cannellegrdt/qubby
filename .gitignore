@@ -42,3 +42,10 @@
 
 # my files
 .vscode
+qubby
+unit_tests
+*.gcno
+*.gcda
+coverage/
+*.info
+*.gcov
