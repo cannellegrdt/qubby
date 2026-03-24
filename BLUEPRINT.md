@@ -1,7 +1,7 @@
 # qubby - blueprint
 
 ## 1. Technical architecture
-* **Scale:** 20 to 25 Qubits (Memory: 512MB to 1GB RAM).
+* **Scale:** 20 to 25 Qubits (Memory: 16MB to 512MB RAM).
 * **State representation:** A single contiguous `std::vector<std::complex<double>>` of size $2^n$.
 * **Gate logic:** "In-place" transformations using **bitwise masking** (avoids massive matrix-matrix multiplications).
 * **Acceleration:**
@@ -22,10 +22,10 @@ To apply a gate to qubit $k$ without a $2^n \times 2^n$ matrix:
 ## 3. Detailed TODO list
 
 ### Phase 1: The foundation
-* [ ] **Project setup:** Configure Makefile with C++20 support.
-* [ ] **State vector class:** Create a `QuantumState` class that wraps `std::vector<std::complex<double>>`.
-* [ ] **Initialization:** Implement the `initialize(int num_qubits)` method (sets state to $|00...0\rangle$, where index 0 is $1.0$).
-* [ ] **Memory check:** Add a safety check to prevent allocating more RAM than your system has.
+* [x] **Project setup:** Configure Makefile with C++20 support.
+* [x] **State vector class:** Create a `QuantumState` class that wraps `std::vector<std::complex<double>>`.
+* [x] **Initialization:** Implement the `initialize(int num_qubits)` method (sets state to $|00...0\rangle$, where index 0 is $1.0$).
+* [x] **Memory check:** Add a safety check to prevent allocating more RAM than your system has.
 
 ### Phase 2: Single-qubit gates
 * [ ] **Gate interface:** Create a generic `applyGate(int targetQubit, Matrix2x2 matrix)`.
