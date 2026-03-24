@@ -28,12 +28,12 @@ To apply a gate to qubit $k$ without a $2^n \times 2^n$ matrix:
 * [x] **Memory check:** Add a safety check to prevent allocating more RAM than your system has.
 
 ### Phase 2: Single-qubit gates
-* [ ] **Gate interface:** Create a generic `applyGate(int targetQubit, Matrix2x2 matrix)`.
-* [ ] **Standard gates:** Implement predefined functions for:
+* [x] **Gate interface:** Create a generic `applyGate(int targetQubit, Matrix2x2 matrix)`.
+* [x] **Standard gates:** Implement predefined functions for:
     * **X (NOT):** Flips the probability amplitudes.
     * **H (Hadamard):** Creates superposition.
     * **Z (Phase Flip):** Changes the sign of the $|1\rangle$ state.
-* [ ] **Validation:** Verify that after two H-gates, the state returns to $|0\rangle$.
+* [x] **Validation:** Verify that after two H-gates, the state returns to $|0\rangle$.
 
 ### Phase 3: Entanglement & multi-qubit
 * [ ] **CNOT Implementation:** Implement the Controlled-NOT gate. This is the "soul" of quantum computing.

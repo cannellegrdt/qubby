@@ -12,6 +12,8 @@
     #include <vector>
     #include <complex>
 
+    #include "Matrix.hpp"
+
 /**
  * @brief Maximum allowed memory for the state vector (512 MB).
  *
@@ -54,12 +56,67 @@ class QuantumState {
         void initialize(int n);
 
         /**
-         * @brief Returns the complex amplitude at the given basis-state index.
+         * @brief Applies an arbitrary single-qubit gate to the target qubit.
          *
-         * @param index Basis-state index in [0, 2^n).
-         * @return The complex amplitude ψ[index].
+         * Uses the bitwise index trick to iterate over all 2^(n-1) pairs of basis
+         * states that differ only in the @p targetQubit bit, and applies @p quantumGate
+         * in-place on each pair. This avoids building the full 2^n × 2^n matrix.
+         *
+         * For a given loop index i, the two paired basis states are:
+         *   - i0: index where bit @p targetQubit is 0
+         *   - i1: index where bit @p targetQubit is 1 (i1 = i0 | (1 << targetQubit))
+         *
+         * The update is:
+         * @code
+         *   ψ[i0]' = m00·ψ[i0] + m01·ψ[i1]
+         *   ψ[i1]' = m10·ψ[i0] + m11·ψ[i1]
+         * @endcode
+         *
+         * @param targetQubit Index of the qubit to transform (0-based, 0 = least significant).
+         * @param quantumGate The 2×2 unitary matrix to apply.
          */
-        std::complex<double> get(int index);
+        void applyGate(int targetQubit, Matrix quantumGate);
+
+        /**
+         * @brief Applies the Pauli-X (NOT) gate to the target qubit.
+         *
+         * Flips the |0⟩ and |1⟩ amplitudes of @p targetQubit:
+         * @code
+         *   X = | 0  1 |
+         *       | 1  0 |
+         * @endcode
+         *
+         * @param targetQubit Index of the qubit to flip (0-based).
+         */
+        void xGate(int targetQubit);
+
+        /**
+         * @brief Applies the Hadamard gate to the target qubit.
+         *
+         * Creates an equal superposition of |0⟩ and |1⟩:
+         * @code
+         *   H = 1/√2 · | 1   1 |
+         *               | 1  -1 |
+         * @endcode
+         *
+         * Applying H twice returns the qubit to its original state (H² = I).
+         *
+         * @param targetQubit Index of the qubit to put in superposition (0-based).
+         */
+        void hGate(int targetQubit);
+
+        /**
+         * @brief Applies the Pauli-Z (phase flip) gate to the target qubit.
+         *
+         * Leaves |0⟩ unchanged and flips the sign of |1⟩:
+         * @code
+         *   Z = | 1   0 |
+         *       | 0  -1 |
+         * @endcode
+         *
+         * @param targetQubit Index of the qubit to phase-flip (0-based).
+         */
+        void zGate(int targetQubit);
 };
 
 #endif /* QUANTUMSTATE_HPP_ */
