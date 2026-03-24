@@ -1,0 +1,119 @@
+##
+## Project: qubby
+## File name: Makefile
+## Author: Cannelle Gourdet - lankley
+## File description: Build system for the qubby quantum circuit simulator
+##
+
+NAME	:=	qubby
+
+CXX	:=	g++
+CXXFLAGS	:=	-std=c++20 -Wall -Wextra -Wpedantic
+OPTFLAGS	:=	-O2
+OMPFLAGS	:=	-fopenmp
+DEBUGFLAGS	:=	-g3 -fsanitize=address,undefined
+
+SRC_DIR	:=	src
+INC_DIR	:=	include
+OBJ_DIR	:=	obj
+TEST_DIR	:=	tests
+UNIT_DIR	:=	$(TEST_DIR)/unit
+FUNC_DIR	:=	$(TEST_DIR)/functional
+
+SRCS	:=	$(shell find $(SRC_DIR) -name '*.cpp' 2>/dev/null)
+OBJS	:=	$(patsubst $(SRC_DIR)/%.cpp, $(OBJ_DIR)/%.o, $(SRCS))
+
+UNIT_BIN	:=	$(TEST_DIR)/unit_tests
+FUNC_SCRIPT	:=	$(FUNC_DIR)/functional_tests.sh
+
+UNIT_SRCS	:=	$(shell find $(UNIT_DIR) -name '*.cpp' 2>/dev/null)
+
+LIBS	:=	-lcriterion
+INC_FLAGS	:=	-I$(INC_DIR)
+
+COVFLAGS	:=	--coverage -fprofile-arcs -ftest-coverage
+COV_DIR	:=	coverage
+
+SYCL_CXX	:=	icpx
+SYCL_FLAGS	:=	-fsycl -std=c++20 -Wall
+
+
+all:	$(NAME)
+
+$(NAME):	$(OBJS)
+	$(CXX) $(CXXFLAGS) $(OPTFLAGS) $(OMPFLAGS) $^ -o $@
+
+$(OBJ_DIR)/%.o:	$(SRC_DIR)/%.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) $(OPTFLAGS) $(OMPFLAGS) $(INC_FLAGS) -c $< -o $@
+
+re:	fclean	all
+
+clean:
+	$(RM) -r $(OBJ_DIR)
+	$(RM) -r $(COV_DIR)
+	find . -name '*.gcno' -o -name '*.gcda' | xargs $(RM) -f 2>/dev/null; true
+
+fclean:	clean
+	$(RM) $(NAME) $(UNIT_BIN)
+
+unit_tests:	$(UNIT_BIN)
+
+$(UNIT_BIN):	$(UNIT_SRCS) $(filter-out $(OBJ_DIR)/main.o, $(OBJS))
+	@mkdir -p $(TEST_DIR)
+	$(CXX) $(CXXFLAGS) $(OMPFLAGS) $(INC_FLAGS) $^ $(LIBS) -o $@
+
+functional_tests:	all
+	@bash $(FUNC_SCRIPT)
+
+run_tests: unit_tests functional_tests
+	@echo "\n── Unit tests ──────────────────────────────────────────"
+	./$(UNIT_BIN) --color=always
+	@echo "\n── Functional tests ────────────────────────────────────"
+	@bash $(FUNC_SCRIPT)
+
+coverage:	CXXFLAGS += $(COVFLAGS)
+coverage:	OPTFLAGS  = -O0
+coverage:	fclean $(UNIT_BIN)
+	./$(UNIT_BIN)
+	@mkdir -p $(COV_DIR)
+	lcov --capture --directory . --output-file $(COV_DIR)/coverage.info \
+	     --exclude '/usr/*' --exclude '$(TEST_DIR)/*'
+	genhtml $(COV_DIR)/coverage.info --output-directory $(COV_DIR)/html
+	@echo "\n Coverage report: $(COV_DIR)/html/index.html"
+
+debug:	CXXFLAGS += $(DEBUGFLAGS)
+debug:	OPTFLAGS  = -O0
+debug:	re
+
+sycl:
+	$(SYCL_CXX) $(SYCL_FLAGS) $(INC_FLAGS) $(SRCS) -o $(NAME)_sycl
+
+format:
+	find $(SRC_DIR) $(INC_DIR) $(TEST_DIR) -name '*.cpp' -o -name '*.hpp' \
+	  | xargs clang-format -i --style=file 2>/dev/null || \
+	  echo "clang-format not found — skipping"
+
+lint:
+	clang-tidy $(SRCS) -- $(CXXFLAGS) $(INC_FLAGS) 2>/dev/null || \
+	  echo "clang-tidy not found — skipping"
+
+help:
+	@echo "Targets:"
+	@echo "  all              Build $(NAME)"
+	@echo "  re               Clean rebuild"
+	@echo "  clean            Remove objects & coverage data"
+	@echo "  fclean           clean + remove binaries"
+	@echo "  unit_tests       Build unit test binary"
+	@echo "  functional_tests Build functional test binary"
+	@echo "  run_tests        Build & run both test suites"
+	@echo "  coverage         Build with gcov, run tests, generate HTML report"
+	@echo "  debug            Build with ASan/UBSan + no optimisations"
+	@echo "  sycl             Build with Intel oneAPI (icpx -fsycl)"
+	@echo "  format           Run clang-format on all sources"
+	@echo "  lint             Run clang-tidy on all sources"
+
+
+.PHONY: all re clean fclean	\
+		unit_tests functional_tests run_tests coverage	\
+		debug sycl format lint help
