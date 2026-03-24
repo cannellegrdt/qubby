@@ -43,6 +43,7 @@
 # my files
 .vscode
 qubby
+qubby_sycl
 unit_tests
 *.gcno
 *.gcda
