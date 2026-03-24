@@ -11,6 +11,7 @@
 #include <stdint.h>
 #include <random>
 #include <algorithm>
+#include <omp.h>
 
 /**
  * @details
@@ -50,6 +51,7 @@ void QuantumState::initialize(int n) {
 void QuantumState::applyGate(int targetQubit, Matrix quantumGate) {
     long long loop_size = (1LL << (this->num_qubits-1));
 
+    #pragma omp parallel for
     for (int i=0; i<loop_size; i++) {
         uint64_t mask = (1ULL << targetQubit) - 1;
         uint64_t i0 = ((i >> targetQubit) << (targetQubit + 1)) | (i & mask);
@@ -135,4 +137,8 @@ int QuantumState::measure() {
     amplitudes[index] = 1.0;
     
     return index;
+}
+
+std::complex<double> QuantumState::getAmplitude(int i) const {
+    return amplitudes[i];
 }

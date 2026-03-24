@@ -47,6 +47,6 @@ To apply a gate to qubit $k$ without a $2^n \times 2^n$ matrix:
 * [x] **Circuit runner:** Create a `QuantumCircuit` class that loads a file and executes the gates in sequence.
 
 ### Phase 5: Hardware acceleration
-* [ ] **OpenMP (CPU):** Add `#pragma omp parallel for` to your gate application loops. This will immediately use all your CPU threads.
-* [ ] **SYCL (GPU):** Install **Intel oneAPI Base Toolkit**.
-* [ ] **Compute kernel:** Rewrite the gate application loop as a SYCL kernel to offload the work to the Iris Xe's 96 Execution Units.
+* [x] **OpenMP (CPU):** Add `#pragma omp parallel for` to your gate application loops. This will immediately use all your CPU threads.
+* [x] **SYCL (GPU):** Install **Intel oneAPI Base Toolkit**.
+* [x] **Compute kernel:** Rewrite the gate application loop as a SYCL kernel to offload the work to the Iris Xe's 96 Execution Units.

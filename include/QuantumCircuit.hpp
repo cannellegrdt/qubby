@@ -37,6 +37,13 @@ class QuantumCircuit {
         QuantumCircuit(int nbQubits);
 
         /**
+         * @brief Measures the underlying quantum state and collapses it.
+         *
+         * @return The measured basis-state index in [0, 2^n).
+         */
+        int measure();
+
+        /**
          * @brief Parses and executes a circuit file line by line.
          *
          * Each non-comment line must follow the format:

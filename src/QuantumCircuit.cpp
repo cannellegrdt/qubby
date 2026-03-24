@@ -18,6 +18,15 @@ QuantumCircuit::QuantumCircuit(int nbQubits) {
 }
 
 /**
+ * @details
+ * Thin wrapper that delegates to QuantumState::measure().
+ * The underlying state is collapsed after this call.
+ */
+int QuantumCircuit::measure() {
+    return state.measure();
+}
+
+/**
  * @brief Extracts the integer qubit index from a token of the form `q[N]`.
  *
  * @param token String token to parse (e.g. `"q[2]"`).

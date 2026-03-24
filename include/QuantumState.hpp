@@ -149,6 +149,39 @@ class QuantumState {
          *         (bit k == 1 means qubit k was measured as |1⟩).
          */
         int measure();
+
+        #ifdef SYCL_ENABLED
+            /**
+             * @brief GPU-accelerated variant of applyGate() using SYCL.
+             *
+             * Offloads the gate application loop to the device selected by
+             * `sycl::default_selector_v` (Intel Iris Xe via oneAPI on this machine).
+             * The amplitude vector and the 2×2 gate are transferred to the device
+             * via SYCL buffers, processed in parallel, then implicitly copied back
+             * when the buffers go out of scope.
+             *
+             * The kernel applies the same bitwise index trick as applyGate():
+             * each work-item handles one (i0, i1) pair independently,
+             * which makes the loop embarrassingly parallel.
+             *
+             * @param targetQubit Index of the qubit to transform (0-based).
+             * @param quantumGate The 2×2 unitary matrix to apply.
+             *
+             * @note Only available when compiled with `-DSYCL_ENABLED` and the
+             *       Intel oneAPI Base Toolkit.
+             */
+            void applyGateSYCL(int targetQubit, Matrix quantumGate);
+        #endif
+
+        /**
+         * @brief Returns the complex amplitude at basis-state index @p i.
+         *
+         * Intended for testing and inspection only.
+         *
+         * @param i Basis-state index in [0, 2^n).
+         * @return The complex amplitude ψ[i].
+         */
+        std::complex<double> getAmplitude(int i) const;
 };
 
 #endif /* QUANTUMSTATE_HPP_ */
