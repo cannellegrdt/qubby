@@ -84,6 +84,26 @@ void QuantumState::zGate(int targetQubit) {
     applyGate(targetQubit, quantumGate);
 }
 
+void QuantumState::rxGate(double theta, int targetQubit) {
+    double val_cos = cos(theta / 2);
+    std::complex<double> val_sin = std::complex<double>(0, -1) * sin(theta / 2);
+    Matrix quantumGate = {val_cos, val_sin, val_sin, val_cos};
+    applyGate(targetQubit, quantumGate);
+}
+
+void QuantumState::ryGate(double theta, int targetQubit) {
+    double val_cos = cos(theta / 2);
+    double val_sin = sin(theta / 2);
+    Matrix quantumGate = {val_cos, -val_sin, val_sin, val_cos};
+    applyGate(targetQubit, quantumGate);
+}
+
+void QuantumState::rzGate(double theta, int targetQubit) {
+    std::complex<double> val_neg_exp = std::exp(std::complex<double>(0, -1) * theta / 2.0);
+    std::complex<double> val_pos_exp = std::exp(std::complex<double>(0, 1) * theta / 2.0);
+    Matrix quantumGate = {val_neg_exp, 0, 0, val_pos_exp};
+    applyGate(targetQubit, quantumGate);
+}
 
 /**
  * @details
@@ -104,6 +124,42 @@ void QuantumState::cnotGate(int controlQubit, int targetQubit) {
 
         bool isControlBitSet = (i0 & (1ULL << controlQubit)) != 0;
         if (isControlBitSet) {
+            std::complex<double> temp_amp_i0 = amplitudes[i0];
+            amplitudes[i0] = amplitudes[i1];
+            amplitudes[i1] = temp_amp_i0;
+        }
+    }
+}
+
+/// @details CNOT-decomposition: CNOT(q0→q1), CNOT(q1→q0), CNOT(q0→q1).
+///          Each CNOT call runs the full loop, so total cost is 3 × O(2^(n-1)).
+void QuantumState::swapGate(int q0, int q1) {
+    cnotGate(q0, q1);
+    cnotGate(q1, q0);
+    cnotGate(q0, q1);
+}
+
+/**
+ * @details
+ * Same bitwise index reconstruction as cnotGate(): each half-index i yields i0/i1
+ * (basis states differing only at @p targetQubit). The flip condition requires
+ * both control bits to be 1 in i0:
+ * @code
+ *   shouldFlip = (i0 & (1 << c0)) && (i0 & (1 << c1))
+ * @endcode
+ * As with cnotGate(), checking i0 is sufficient because i0 and i1 only differ
+ * at @p targetQubit (c0 ≠ targetQubit and c1 ≠ targetQubit).
+ */
+void QuantumState::toffoliGate(int c0, int c1, int targetQubit) {
+    long long loop_size = (1LL << (this->num_qubits-1));
+
+    for (int i=0; i<loop_size; i++) {
+        uint64_t mask = (1ULL << targetQubit) - 1;
+        uint64_t i0 = ((i >> targetQubit) << (targetQubit + 1)) | (i & mask);
+        uint64_t i1 = i0 | (1ULL << targetQubit);
+
+        bool shouldFlip = (i0 & (1ULL << c0)) && (i0 & (1ULL << c1));
+        if (shouldFlip) {
             std::complex<double> temp_amp_i0 = amplitudes[i0];
             amplitudes[i0] = amplitudes[i1];
             amplitudes[i1] = temp_amp_i0;

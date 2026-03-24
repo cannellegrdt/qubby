@@ -96,7 +96,7 @@ class QuantumState {
          * Creates an equal superposition of |0⟩ and |1⟩:
          * @code
          *   H = 1/√2 · | 1   1 |
-         *               | 1  -1 |
+         *              | 1  -1 |
          * @endcode
          *
          * Applying H twice returns the qubit to its original state (H² = I).
@@ -119,6 +119,45 @@ class QuantumState {
         void zGate(int targetQubit);
 
         /**
+         * @brief Applies the Rx(θ) rotation gate around the X-axis of the Bloch sphere.
+         *
+         * @code
+         *   Rx(θ) = | cos(θ/2)    -i·sin(θ/2) |
+         *           | -i·sin(θ/2)  cos(θ/2)   |
+         * @endcode
+         *
+         * @param theta    Rotation angle in radians.
+         * @param targetQubit Index of the qubit to rotate (0-based).
+         */
+        void rxGate(double theta, int targetQubit);
+
+        /**
+         * @brief Applies the Ry(θ) rotation gate around the Y-axis of the Bloch sphere.
+         *
+         * @code
+         *   Ry(θ) = | cos(θ/2)  -sin(θ/2) |
+         *           | sin(θ/2)   cos(θ/2) |
+         * @endcode
+         *
+         * @param theta    Rotation angle in radians.
+         * @param targetQubit Index of the qubit to rotate (0-based).
+         */
+        void ryGate(double theta, int targetQubit);
+
+        /**
+         * @brief Applies the Rz(θ) rotation gate around the Z-axis of the Bloch sphere.
+         *
+         * @code
+         *   Rz(θ) = | e^(-iθ/2)  0          |
+         *           | 0           e^(+iθ/2) |
+         * @endcode
+         *
+         * @param theta    Rotation angle in radians.
+         * @param targetQubit Index of the qubit to rotate (0-based).
+         */
+        void rzGate(double theta, int targetQubit);
+
+        /**
          * @brief Applies the Controlled-NOT (CNOT) gate.
          *
          * Flips @p targetQubit if and only if @p controlQubit is |1⟩.
@@ -136,6 +175,43 @@ class QuantumState {
          * @param targetQubit  Index of the qubit to flip conditionally (0-based).
          */
         void cnotGate(int controlQubit, int targetQubit);
+
+        /**
+         * @brief Swaps the quantum states of two qubits.
+         *
+         * Exchanges the amplitudes of @p q0 and @p q1 across all basis states.
+         * Implemented as three successive CNOT gates (the standard CNOT-decomposition
+         * of SWAP), so no additional bitwise kernel is needed:
+         * @code
+         *   SWAP(q0, q1) = CNOT(q0→q1) · CNOT(q1→q0) · CNOT(q0→q1)
+         * @endcode
+         *
+         * @param q0 Index of the first qubit (0-based).
+         * @param q1 Index of the second qubit (0-based).
+         */
+        void swapGate(int q0, int q1);
+
+        /**
+         * @brief Applies the Toffoli (CCX / Controlled-Controlled-NOT) gate.
+         *
+         * Flips @p targetQubit if and only if both @p c0 and @p c1 are |1⟩.
+         * This is the universal reversible classical gate: any classical boolean
+         * circuit can be built from Toffoli gates alone.
+         *
+         * Truth table (c0, c1 | target → target'):
+         * @code
+         *   0, 0 | * → *   (unchanged)
+         *   0, 1 | * → *   (unchanged)
+         *   1, 0 | * → *   (unchanged)
+         *   1, 1 | 0 → 1   (flipped)
+         *   1, 1 | 1 → 0   (flipped)
+         * @endcode
+         *
+         * @param c0          Index of the first control qubit (0-based).
+         * @param c1          Index of the second control qubit (0-based).
+         * @param targetQubit Index of the qubit to flip conditionally (0-based).
+         */
+        void toffoliGate(int c0, int c1, int targetQubit);
 
         /**
          * @brief Measures the quantum state and collapses it to a single basis state.

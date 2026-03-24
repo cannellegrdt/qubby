@@ -74,7 +74,7 @@ $(UNIT_BIN):	$(UNIT_SRCS) $(filter-out $(OBJ_DIR)/main.o, $(OBJS))
 functional_tests:	all
 	@bash $(FUNC_SCRIPT)
 
-run_tests: unit_tests
+run_tests: unit_tests all
 	@echo "── Unit tests ──────────────────────────────────────────"
 	./$(UNIT_BIN) --color=always
 	@echo "\n"

@@ -52,9 +52,9 @@ To apply a gate to qubit $k$ without a $2^n \times 2^n$ matrix:
 * [x] **Compute kernel:** Write the gate application loop as a SYCL kernel to offload the work to the Iris Xe's 96 Execution Units.
 
 ### Phase 6: Parametric gates & extended gate set
-* [ ] **Rotation gates:** Implement `Rx(θ)`, `Ry(θ)`, `Rz(θ)` — arbitrary single-qubit rotations around the Bloch sphere axes.
-* [ ] **Multi-qubit gates:** Implement `swapGate(int q0, int q1)` and `toffoliGate(int c0, int c1, int target)` (Controlled-Controlled-NOT).
-* [ ] **OpenQASM 2.0 support:** Extend the parser to handle register declarations (`qreg q[n];`), parametric gates (`rx(pi/2) q[0]`), and multi-line comments.
+* [x] **Rotation gates:** Implement `Rx(θ)`, `Ry(θ)`, `Rz(θ)` — arbitrary single-qubit rotations around the Bloch sphere axes.
+* [x] **Multi-qubit gates:** Implement `swapGate(int q0, int q1)` and `toffoliGate(int c0, int c1, int target)` (Controlled-Controlled-NOT).
+* [x] **OpenQASM 2.0 support:** Extend the parser to handle register declarations (`qreg q[n];`), parametric gates (`rx(pi/2) q[0]`), and multi-line comments.
 
 ### Phase 7: Quantum algorithms
 * [ ] **Deutsch-Jozsa:** Determine whether a function is constant or balanced with a single query — the first demonstration of quantum advantage.

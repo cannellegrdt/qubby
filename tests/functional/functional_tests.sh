@@ -94,6 +94,56 @@ run_test "no_args_exits_nonzero" \
     1 "" \
     "$BINARY"
 
+# 10. Rx(π)|0⟩ = -i|1⟩ → probabilité 1, mesure toujours 1
+run_test "rx_pi_measures_one" \
+    0 "Measurement: 1" \
+    "$BINARY" "$CIRCUITS/rx_pi.qasm" 1
+
+# 11. Ry(π)|0⟩ = |1⟩ → mesure toujours 1
+run_test "ry_pi_measures_one" \
+    0 "Measurement: 1" \
+    "$BINARY" "$CIRCUITS/ry_pi.qasm" 1
+
+# 12. Rz(π/2)|0⟩ : changement de phase uniquement, mesure toujours 0
+run_test "rz_on_ground_state_measures_zero" \
+    0 "Measurement: 0" \
+    "$BINARY" "$CIRCUITS/rz_ground.qasm" 1
+
+# 13. Commentaire bloc /* */ ignoré : seule la gate X s'exécute → mesure = 1
+run_test "block_comment_ignored" \
+    0 "Measurement: 1" \
+    "$BINARY" "$CIRCUITS/block_comment.qasm" 1
+
+# 14. qreg réinitialise l'état puis X → mesure = 1
+run_test "qreg_reinitializes_state" \
+    0 "Measurement: 1" \
+    "$BINARY" "$CIRCUITS/qreg.qasm" 1
+
+# 15. Angle symbolique rx(pi) → Rx(π)|0⟩ = -i|1⟩ → mesure = 1
+run_test "rx_symbolic_pi_measures_one" \
+    0 "Measurement: 1" \
+    "$BINARY" "$CIRCUITS/rx_symbolic_pi.qasm" 1
+
+# 16. Angle symbolique ry(pi/2) → superposition équiprobable, résultat 0 ou 1
+run_test "ry_symbolic_pi_div2_valid_output" \
+    0 "Measurement: 0|Measurement: 1" \
+    "$BINARY" "$CIRCUITS/ry_symbolic_pi_div2.qasm" 1
+
+# 17. Commentaire bloc multi-lignes /* \n ... \n */ ignoré, X s'exécute → mesure = 1
+run_test "multiline_block_comment_ignored" \
+    0 "Measurement: 1" \
+    "$BINARY" "$CIRCUITS/multiline_block_comment.qasm" 1
+
+# 18. Angle symbolique rx(pi*2) → Rx(2π)|0⟩ = -|0⟩ → mesure = 0
+run_test "rx_symbolic_pi_mult_measures_zero" \
+    0 "Measurement: 0" \
+    "$BINARY" "$CIRCUITS/rx_symbolic_pi_mult.qasm" 1
+
+# 19. Paramètre rx sans parenthèses → erreur de parsing
+run_test "malformed_rx_angle_exits_nonzero" \
+    1 "Error:" \
+    "$BINARY" "$CIRCUITS/malformed_rx_angle.qasm" 1
+
 
 echo ""
 echo "  Results: ${PASS} passed, ${FAIL} failed"
