@@ -36,10 +36,10 @@ To apply a gate to qubit $k$ without a $2^n \times 2^n$ matrix:
 * [x] **Validation:** Verify that after two H-gates, the state returns to $|0\rangle$.
 
 ### Phase 3: Entanglement & multi-qubit
-* [ ] **CNOT Implementation:** Implement the Controlled-NOT gate. This is the "soul" of quantum computing.
+* [x] **CNOT Implementation:** Implement the Controlled-NOT gate. This is the "soul" of quantum computing.
     * *Logic:* Only swap/transform indices where the *control* bit is `1`.
-* [ ] **Entanglement test:** Create a **bell state** $(\frac{|00\rangle + |11\rangle}{\sqrt{2}})$.
-* [ ] **Measurement:** Implement a `measure()` function using `std::discrete_distribution` to collapse the state based on $| \alpha |^2$.
+* [x] **Entanglement test:** Create a **bell state** $(\frac{|00\rangle + |11\rangle}{\sqrt{2}})$.
+* [x] **Measurement:** Implement a `measure()` function using `std::discrete_distribution` to collapse the state based on $| \alpha |^2$.
 
 ### Phase 4: OpenQASM parser
 * [ ] **Lexer:** Write a simple string parser to read `.qasm` files line by line.

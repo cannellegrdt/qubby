@@ -9,6 +9,8 @@
 #include <stdexcept>
 #include <string>
 #include <stdint.h>
+#include <random>
+#include <algorithm>
 
 /**
  * @details
@@ -78,4 +80,59 @@ void QuantumState::hGate(int targetQubit) {
 void QuantumState::zGate(int targetQubit) {
     Matrix quantumGate = {1, 0, 0, -1};
     applyGate(targetQubit, quantumGate);
+}
+
+
+/**
+ * @details
+ * Reuses the same bitwise index reconstruction as applyGate(): for each half-index i,
+ * i0 and i1 are the two basis states that differ only at @p targetQubit.
+ * The control condition is checked on i0 (bit @p controlQubit of i0).
+ * Because i0 and i1 only differ at @p targetQubit (and @p controlQubit ≠ @p targetQubit),
+ * the control bit has the same value in both - checking i0 is sufficient.
+ * When the control bit is set, the two amplitudes are swapped (equivalent to applying X).
+ */
+void QuantumState::cnotGate(int controlQubit, int targetQubit) {
+    long long loop_size = (1LL << (this->num_qubits-1));
+
+    for (int i=0; i<loop_size; i++) {
+        uint64_t mask = (1ULL << targetQubit) - 1;
+        uint64_t i0 = ((i >> targetQubit) << (targetQubit + 1)) | (i & mask);
+        uint64_t i1 = i0 | (1ULL << targetQubit);
+
+        bool isControlBitSet = (i0 & (1ULL << controlQubit)) != 0;
+        if (isControlBitSet) {
+            std::complex<double> temp_amp_i0 = amplitudes[i0];
+            amplitudes[i0] = amplitudes[i1];
+            amplitudes[i1] = temp_amp_i0;
+        }
+    }
+}
+
+/**
+ * @details
+ * 1. Build a probability vector: p[i] = |ψ[i]|² = std::norm(amplitudes[i]).
+ * 2. Draw one sample from std::discrete_distribution (non-uniform, weighted by p).
+ * 3. Collapse the state: zero all amplitudes, then set amplitudes[result] = 1.0.
+ *
+ * std::random_device seeds a Mersenne Twister (std::mt19937) for each call,
+ * so consecutive measurements of the same state are statistically independent.
+ *
+ * @note The state is mutated after this call - it is no longer a superposition.
+ *       Call initialize() to reset, or save a copy before measuring.
+ */
+int QuantumState::measure() {
+    std::vector<double> probabilities;
+    for (const auto &amp : amplitudes) {
+        probabilities.push_back(std::norm(amp));
+    }
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::discrete_distribution<> dist(probabilities.begin(), probabilities.end());
+    int index = dist(gen);
+
+    std::fill(amplitudes.begin(), amplitudes.end(), std::complex<double>(0.0, 0.0));
+    amplitudes[index] = 1.0;
+    
+    return index;
 }

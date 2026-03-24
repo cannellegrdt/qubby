@@ -117,6 +117,38 @@ class QuantumState {
          * @param targetQubit Index of the qubit to phase-flip (0-based).
          */
         void zGate(int targetQubit);
+
+        /**
+         * @brief Applies the Controlled-NOT (CNOT) gate.
+         *
+         * Flips @p targetQubit if and only if @p controlQubit is |1⟩.
+         * This is the fundamental two-qubit entangling gate.
+         *
+         * Truth table (control | target → target'):
+         * @code
+         *   0 | 0 → 0
+         *   0 | 1 → 1
+         *   1 | 0 → 1   (flipped)
+         *   1 | 1 → 0   (flipped)
+         * @endcode
+         *
+         * @param controlQubit Index of the control qubit (0-based).
+         * @param targetQubit  Index of the qubit to flip conditionally (0-based).
+         */
+        void cnotGate(int controlQubit, int targetQubit);
+
+        /**
+         * @brief Measures the quantum state and collapses it to a single basis state.
+         *
+         * Samples a basis-state index according to the Born rule (probability = |ψ[i]|²),
+         * then projects the state onto that outcome: all amplitudes are set to 0 except
+         * the measured one, which is set to 1.0 (renormalisation after collapse).
+         *
+         * @return The measured basis-state index in [0, 2^n). The binary representation
+         *         of this index encodes the classical bit value of each qubit
+         *         (bit k == 1 means qubit k was measured as |1⟩).
+         */
+        int measure();
 };
 
 #endif /* QUANTUMSTATE_HPP_ */
