@@ -36,6 +36,25 @@ class QuantumCircuit {
         /** @brief The underlying quantum state that gates are applied to. */
         QuantumState state;
 
+        /** @brief Number of qubits in the circuit (updated by `qreg`). */
+        int numQubits;
+
+        /**
+         * @struct GateRecord
+         * @brief Stores one gate application for later rendering by draw().
+         *
+         * @var name   Gate name as it appears in the OpenQASM source (e.g. `"h"`, `"cx"`).
+         * @var qubits Ordered list of qubit indices the gate acts on.
+         *             Single-qubit gates have one entry; cx/swap have two; ccx has three.
+         */
+        struct GateRecord {
+            std::string name;
+            std::vector<int> qubits;
+        };
+
+        /** @brief Sequential log of every gate applied since the last `qreg` (or construction). */
+        std::vector<GateRecord> circuitLog;
+
     public:
         /**
          * @brief Constructs a QuantumCircuit and initialises the state to |00...0⟩.
@@ -72,6 +91,35 @@ class QuantumCircuit {
          *         is malformed, or an unknown gate name is encountered.
          */
         void load(std::string filename);
+
+        /**
+         * @brief Renders the circuit as an ASCII diagram to stdout.
+         *
+         * Replays the gate log (`circuitLog`) and produces one horizontal wire per qubit.
+         * Gate symbols are aligned in columns; multi-qubit gates draw a vertical connector
+         * (`│`) through any qubits between the operands.
+         *
+         * Symbol legend:
+         * @code
+         *   H  Ry  Rz  Rx      single-qubit gates
+         *   ●                  control qubit (cx, ccx)
+         *   X                  target qubit (cx, ccx)
+         *   ×                  SWAP operand
+         *   │                  vertical wire between multi-qubit gate operands
+         * @endcode
+         *
+         * Unicode characters (│, ●, ×) are counted by display width, not byte length,
+         * so columns stay aligned even with multi-byte UTF-8 symbols.
+         */
+        void draw();
+
+        /**
+         * @brief Prints the non-negligible amplitudes of the current quantum state to stdout.
+         *
+         * Delegates to QuantumState::printState(). Only basis states with
+         * probability > 1e-6 are shown.
+         */
+        void printState();
 };
 
 #endif /* QUANTUMCIRCUIT_HPP_ */

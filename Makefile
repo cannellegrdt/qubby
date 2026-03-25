@@ -18,6 +18,7 @@ INC_DIR	:=	include
 OBJ_DIR	:=	obj
 TEST_DIR	:=	tests
 UNIT_DIR	:=	$(TEST_DIR)/unit
+BENCH_DIR	:=	benchmarks
 FUNC_DIR	:=	$(TEST_DIR)/functional
 
 SRCS	:=	$(shell find $(SRC_DIR) -name '*.cpp' ! -name '*.sycl.cpp' 2>/dev/null)
@@ -44,6 +45,10 @@ SYCL_TEST_BIN	:=	$(TEST_DIR)/sycl_tests
 SYCL_SRCS	:=	$(filter-out $(SRC_DIR)/main.cpp, $(SYCL_ALL_SRCS))
 SYCL_OBJS	:=	$(patsubst $(SRC_DIR)/%.cpp, $(SYCL_OBJ_DIR)/%.o, $(SYCL_SRCS))
 
+BENCH_BIN		:=	$(BENCH_DIR)/benchmark
+BENCH_SYCL_BIN	:=	$(BENCH_DIR)/benchmark_sycl
+BENCH_SRC		:=	$(BENCH_DIR)/benchmark.cpp
+
 
 all:	$(NAME)
 
@@ -63,6 +68,7 @@ clean:
 
 fclean:	clean
 	$(RM) $(NAME) $(UNIT_BIN) $(SYCL_TEST_BIN)
+	$(RM) $(BENCH_BIN) $(BENCH_SYCL_BIN)
 	$(RM) -r $(SYCL_OBJ_DIR)
 
 unit_tests:	$(UNIT_BIN)
@@ -113,6 +119,20 @@ sycl_tests:
 	@$(MAKE) --no-print-directory $(SYCL_TEST_BIN)
 	./$(SYCL_TEST_BIN) --color=always
 
+benchmark:	$(BENCH_BIN)
+	./$(BENCH_BIN)
+
+$(BENCH_BIN):	$(BENCH_SRC) $(filter-out $(OBJ_DIR)/main.o, $(OBJS))
+	@mkdir -p $(BENCH_DIR)
+	$(CXX) $(CXXFLAGS) $(OPTFLAGS) $(OMPFLAGS) $(INC_FLAGS) $^ -o $@
+
+benchmark_sycl:
+	@command -v $(SYCL_CXX) >/dev/null 2>&1 || \
+	  { echo "Error: $(SYCL_CXX) not found — install Intel oneAPI Base Toolkit first."; exit 1; }
+	$(SYCL_CXX) $(SYCL_FLAGS) $(INC_FLAGS) -DSYCL_ENABLED \
+	  $(BENCH_SRC) $(SYCL_SRCS) -o $(BENCH_SYCL_BIN)
+	./$(BENCH_SYCL_BIN)
+
 format:
 	find $(SRC_DIR) $(INC_DIR) $(TEST_DIR) -name '*.cpp' -o -name '*.hpp' \
 	  | xargs clang-format -i --style=file 2>/dev/null || \
@@ -135,10 +155,14 @@ help:
 	@echo "  debug            Build with ASan/UBSan + no optimisations"
 	@echo "  sycl             Build with Intel oneAPI (icpx -fsycl)"
 	@echo "  sycl_tests       Build & run SYCL unit tests (requires icpx)"
+	@echo "  benchmark        Build & run OpenMP benchmark (20–25 qubits)"
+	@echo "  benchmark_sycl   Build & run OpenMP+SYCL benchmark (requires icpx)"
 	@echo "  format           Run clang-format on all sources"
 	@echo "  lint             Run clang-tidy on all sources"
 
 
 .PHONY: all re clean fclean	\
 		unit_tests functional_tests run_tests coverage	\
-		debug sycl sycl_tests format lint help
+		debug sycl sycl_tests			\
+		benchmark benchmark_sycl		\
+		format lint help

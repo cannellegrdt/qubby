@@ -62,6 +62,6 @@ To apply a gate to qubit $k$ without a $2^n \times 2^n$ matrix:
 * [x] **Quantum Fourier Transform (QFT):** Implement QFT as a building block for more advanced algorithms (e.g. Shor's).
 
 ### Phase 8: Observability & benchmarking
-* [ ] **Probability distribution display:** Print the amplitude distribution of all basis states after a circuit run.
-* [ ] **ASCII circuit drawer:** Render the gate sequence as a readable ASCII diagram in the terminal.
-* [ ] **OpenMP vs SYCL benchmark:** Measure and compare wall-clock time for `applyGate` vs `applyGateSYCL` on large qubit counts (20–25 qubits).
+* [x] **Probability distribution display:** Print the amplitude distribution of all basis states after a circuit run.
+* [x] **ASCII circuit drawer:** Render the gate sequence as a readable ASCII diagram in the terminal.
+* [x] **OpenMP vs SYCL benchmark:** Measure and compare wall-clock time for `applyGate` vs `applyGateSYCL` on large qubit counts (20–25 qubits).

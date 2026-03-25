@@ -50,3 +50,4 @@ unit_tests
 coverage/
 *.info
 *.gcov
+benchmark

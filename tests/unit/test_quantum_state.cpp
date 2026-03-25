@@ -6,6 +6,7 @@
  */
 
 #include <criterion/criterion.h>
+#include <criterion/redirect.h>
 #include "QuantumState.hpp"
 #include "QuantumCircuit.hpp"
 #include "QuantumFourierTransform.hpp"
@@ -795,4 +796,69 @@ Test(deutsch_jozsa, n2_constant_oracle_returns_constant) {
 Test(deutsch_jozsa, n2_balanced_oracle_returns_balanced) {
     DeutschJozsa dj(2, [](QuantumState& s) { s.cnotGate(0, 2); });
     cr_assert_eq(dj.run(), FunctionType::BALANCED);
+}
+
+/* ── swap gate in parser ───────────────────────────────────────────────────── */
+
+Test(quantum_circuit, swap_circuit_swaps_qubits) {
+    QuantumCircuit c(2);
+    c.load("tests/functional/circuits/swap_circuit.qasm");
+
+    cr_assert_eq(c.measure(), 2);
+}
+
+/* ── ccx gate in parser ────────────────────────────────────────────────────── */
+
+Test(quantum_circuit, ccx_circuit_flips_target_when_both_controls_set) {
+    QuantumCircuit c(3);
+    c.load("tests/functional/circuits/ccx_circuit.qasm");
+
+    cr_assert_eq(c.measure(), 7);
+}
+
+/* ── draw ──────────────────────────────────────────────────────────────────── */
+
+Test(quantum_circuit, draw_does_not_crash_on_empty_circuit) {
+    QuantumCircuit c(2);
+    c.draw();
+}
+
+Test(quantum_circuit, draw_outputs_one_line_per_qubit, .init = cr_redirect_stdout) {
+    QuantumCircuit c(2);
+    c.load("tests/functional/circuits/bell_state.qasm");
+    c.draw();
+    fflush(stdout);
+
+    FILE* f = cr_get_redirected_stdout();
+    rewind(f);
+    char buf[1024] = {};
+    fread(buf, 1, sizeof(buf) - 1, f);
+    std::string out(buf);
+
+    cr_assert(out.find("q[0]") != std::string::npos, "draw() must contain q[0]");
+    cr_assert(out.find("q[1]") != std::string::npos, "draw() must contain q[1]");
+    cr_assert(out.find("H")    != std::string::npos, "draw() must show H gate");
+}
+
+/* ── printState ────────────────────────────────────────────────────────────── */
+
+Test(quantum_circuit, print_state_does_not_crash) {
+    QuantumCircuit c(1);
+    c.printState();
+}
+
+Test(quantum_circuit, print_state_shows_excited_state, .init = cr_redirect_stdout) {
+    QuantumCircuit c(1);
+    c.load("tests/functional/circuits/x_gate.qasm");
+    c.printState();
+    fflush(stdout);
+
+    FILE* f = cr_get_redirected_stdout();
+    rewind(f);
+    char buf[512] = {};
+    fread(buf, 1, sizeof(buf) - 1, f);
+    std::string out(buf);
+
+    cr_assert(out.find("100") != std::string::npos, "printState must show 100%% probability");
+    cr_assert(out.find("1")   != std::string::npos, "printState must show binary '1'");
 }

@@ -307,6 +307,18 @@ class QuantumState {
          * @return The complex amplitude ψ[i].
          */
         std::complex<double> getAmplitude(int i) const;
+
+        /**
+         * @brief Prints the non-negligible amplitudes of the quantum state to stdout.
+         *
+         * For each basis state i with |ψ[i]|² > 1e-6, prints one line:
+         * @code
+         *   |<index>⟩  <binary>  <real>+<imag>i  (<probability>%)
+         * @endcode
+         * where `<binary>` is the big-endian bit string of i (MSB = qubit n-1).
+         * Basis states with negligible probability are silently skipped.
+         */
+        void printState();
 };
 
 #endif /* QUANTUMSTATE_HPP_ */

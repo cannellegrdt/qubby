@@ -12,6 +12,8 @@
 #include <random>
 #include <algorithm>
 #include <omp.h>
+#include <iostream>
+#include <iomanip>
 
 /**
  * @details
@@ -273,4 +275,31 @@ void QuantumState::applyControlledRz(int control, int target, double theta) {
 
 std::complex<double> QuantumState::getAmplitude(int i) const {
     return amplitudes[i];
+}
+
+/**
+ * @details
+ * Iterates over all 2^n amplitudes. For each i where std::norm(amplitudes[i]) > 1e-6:
+ * - Converts i to a big-endian binary string (bit num_qubits-1 first).
+ * - Formats the complex amplitude as `real+imagi` (3 decimal places).
+ * - Prints probability as a percentage.
+ * Basis states with negligible probability (numerical noise) are silently skipped.
+ */
+void QuantumState::printState() {
+    int loop_size = amplitudes.size();
+    for (int i=0; i<loop_size; i++) {
+        double probability = std::norm(amplitudes[i]);
+
+        if (probability > 1e-6) {
+            std::string binary = "";
+            for (int b = num_qubits-1; b>=0; b--) {
+                binary += ((i >> b) & 1) ? '1' : '0';
+            }
+
+            std::cout << "|" << std::setw(num_qubits) << i << "⟩"
+                    << "  " << binary
+                    << "  " << std::fixed << std::setprecision(3) << amplitudes[i].real() << (amplitudes[i].imag() >= 0 ? "+" : "") << amplitudes[i].imag() << "i"
+                    << "  (" << (probability * 100.0) << "%)\n";
+        }
+    }
 }
