@@ -195,6 +195,82 @@ int QuantumState::measure() {
     return index;
 }
 
+/**
+ * @details
+ * 1. Accumulate P(k=1) = Σ |ψ[i]|² over all i where bit k is 1.
+ * 2. Draw from Bernoulli(P(k=1)) to get the outcome (0 or 1).
+ * 3. Compute the renormalisation factor 1/√P(outcome).
+ * 4. Zero all amplitudes inconsistent with the outcome; scale the rest.
+ *
+ * The remaining state is a valid normalised quantum state conditioned on the
+ * measurement outcome (partial collapse).
+ */
+int QuantumState::measureQubit(int k) {
+    double p1 = 0.0;
+    int num_states = amplitudes.size();
+
+    for (int i = 0; i < num_states; ++i) {
+        if ((i >> k) & 1)
+            p1 += std::norm(amplitudes[i]);
+    }
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::bernoulli_distribution dist(p1);
+    int index = dist(gen) ? 1 : 0;
+
+    double p_result = (index == 1) ? p1 : (1.0 - p1);
+    double normalization_factor = 1.0 / std::sqrt(p_result);
+
+    for (int i=0; i<num_states; i++) {
+        int bit_k = (i >> k) & 1;
+        if (bit_k == index) {
+            amplitudes[i] *= normalization_factor;
+        } else {
+            amplitudes[i] = 0.0;
+        }
+    }
+    return index;
+}
+
+/// @details Single-line multiply: amplitudes[index] *= -1.0. O(1).
+void QuantumState::phaseFlip(int index) {
+    amplitudes[index] *= -1.0;
+}
+
+/**
+ * @details
+ * Applies a -1 phase to all basis states except |0⟩ by negating amplitudes[1..2^n-1].
+ * This is the second step of Grover's diffusion operator (between two H layers).
+ */
+void QuantumState::phaseFlipAllExceptZero() {
+    for (size_t i = 1; i < amplitudes.size(); i++)
+        amplitudes[i] *= -1.0;
+}
+
+/**
+ * @details
+ * Uses the same bitwise index reconstruction as applyGate(): iterates over 2^(n-1)
+ * half-indices, reconstructs i0/i1 relative to @p target, then applies the phase
+ * e^(iθ) to i1 only when the @p control bit in i0 is 1.
+ *
+ * Only i1 (the |1⟩ component of @p target) is modified because Rz leaves |0⟩ unchanged
+ * up to a global phase. The loop is parallelised with OpenMP.
+ */
+void QuantumState::applyControlledRz(int control, int target, double theta) {
+    long long loop_size = (1LL << (this->num_qubits-1));
+
+    #pragma omp parallel for
+    for (int i=0; i<loop_size; i++) {
+        uint64_t mask = (1ULL << target) - 1;
+        uint64_t i0 = ((i >> target) << (target + 1)) | (i & mask);
+        uint64_t i1 = i0 | (1ULL << target);
+
+        if ((i0 >> control) & 1)
+            amplitudes[i1] *= std::exp(std::complex<double>(0, theta));
+    }
+}
+
 std::complex<double> QuantumState::getAmplitude(int i) const {
     return amplitudes[i];
 }

@@ -57,9 +57,9 @@ To apply a gate to qubit $k$ without a $2^n \times 2^n$ matrix:
 * [x] **OpenQASM 2.0 support:** Extend the parser to handle register declarations (`qreg q[n];`), parametric gates (`rx(pi/2) q[0]`), and multi-line comments.
 
 ### Phase 7: Quantum algorithms
-* [ ] **Deutsch-Jozsa:** Determine whether a function is constant or balanced with a single query — the first demonstration of quantum advantage.
-* [ ] **Grover's algorithm:** Implement amplitude amplification to search an unstructured database in $O(\sqrt{N})$ instead of $O(N)$.
-* [ ] **Quantum Fourier Transform (QFT):** Implement QFT as a building block for more advanced algorithms (e.g. Shor's).
+* [x] **Deutsch-Jozsa:** Determine whether a function is constant or balanced with a single query — the first demonstration of quantum advantage.
+* [x] **Grover's algorithm:** Implement amplitude amplification to search an unstructured database in $O(\sqrt{N})$ instead of $O(N)$.
+* [x] **Quantum Fourier Transform (QFT):** Implement QFT as a building block for more advanced algorithms (e.g. Shor's).
 
 ### Phase 8: Observability & benchmarking
 * [ ] **Probability distribution display:** Print the amplitude distribution of all basis states after a circuit run.

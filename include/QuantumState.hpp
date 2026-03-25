@@ -226,6 +226,55 @@ class QuantumState {
          */
         int measure();
 
+        /**
+         * @brief Measures a single qubit and collapses the state accordingly.
+         *
+         * Computes P(qubit k = |1⟩) = Σ |ψ[i]|² for all i where bit k is 1,
+         * draws a Bernoulli sample, then renormalises the remaining amplitudes
+         * (zeroing all basis states inconsistent with the outcome).
+         *
+         * Unlike measure(), the other qubits remain in superposition.
+         *
+         * @param k Index of the qubit to measure (0-based).
+         * @return 0 or 1 — the classical outcome of the measurement.
+         */
+        int measureQubit(int k);
+
+        /**
+         * @brief Flips the sign of a single basis-state amplitude (phase kickback).
+         *
+         * Equivalent to applying a Z-like phase of -1 to basis state @p index:
+         * ψ[index] *= -1. Used as the oracle step in Grover's algorithm.
+         *
+         * @param index Basis-state index whose amplitude is negated.
+         */
+        void phaseFlip(int index);
+
+        /**
+         * @brief Flips the sign of all amplitudes except ψ[0] (inversion about the mean).
+         *
+         * Implements the diffusion operator's phase-flip step:
+         * sets all amplitudes to 0 except ψ[0], which retains its original value.
+         * Applied in Grover's diffusion between two layers of Hadamard gates.
+         *
+         * @note This is not a standard unitary gate — it is a partial projection
+         *       used internally by Grover::applyDiffusion().
+         */
+        void phaseFlipAllExceptZero();
+
+        /**
+         * @brief Applies a controlled-Rz(θ) gate: rotates @p target by e^(iθ) if @p control is |1⟩.
+         *
+         * For each basis state where the @p control qubit is |1⟩, multiplies the
+         * |1⟩ amplitude of @p target by e^(iθ). Used by QFT to apply the
+         * conditional phase rotations Rk = Rz(2π/2^k).
+         *
+         * @param control Index of the control qubit (0-based).
+         * @param target  Index of the target qubit to phase-rotate (0-based).
+         * @param theta   Rotation angle in radians.
+         */
+        void applyControlledRz(int control, int target, double theta);
+
         #ifdef SYCL_ENABLED
             /**
              * @brief GPU-accelerated variant of applyGate() using SYCL.

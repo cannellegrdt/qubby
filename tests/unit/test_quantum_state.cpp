@@ -8,6 +8,9 @@
 #include <criterion/criterion.h>
 #include "QuantumState.hpp"
 #include "QuantumCircuit.hpp"
+#include "QuantumFourierTransform.hpp"
+#include "Grover.hpp"
+#include "DeutschJozsa.hpp"
 #include <cmath>
 #include <stdexcept>
 
@@ -608,4 +611,188 @@ Test(quantum_circuit, throws_on_malformed_parametric_angle) {
         QuantumCircuit(1).load("tests/functional/circuits/malformed_rx_angle.qasm"),
         std::runtime_error
     );
+}
+
+/* ── measureQubit ──────────────────────────────────────────────────────────── */
+
+Test(measure_qubit, ground_state_returns_zero) {
+    QuantumState s;
+    s.initialize(1);
+
+    cr_assert_eq(s.measureQubit(0), 0);
+}
+
+Test(measure_qubit, excited_state_returns_one) {
+    QuantumState s;
+    s.initialize(1);
+    s.xGate(0);
+
+    cr_assert_eq(s.measureQubit(0), 1);
+}
+
+Test(measure_qubit, collapses_the_qubit) {
+    QuantumState s;
+    s.initialize(1);
+    s.hGate(0);
+
+    int first  = s.measureQubit(0);
+    int second = s.measureQubit(0);
+    cr_assert_eq(first, second);
+}
+
+Test(measure_qubit, only_target_qubit_is_affected) {
+    QuantumState s;
+    s.initialize(2);
+    s.xGate(1);
+
+    cr_assert_eq(s.measureQubit(0), 0);
+    cr_assert_eq(s.measureQubit(1), 1);
+}
+
+/* ── phaseFlip ─────────────────────────────────────────────────────────────── */
+
+Test(phase_flip, negates_amplitude_at_index) {
+    QuantumState s;
+    s.initialize(1);
+    s.phaseFlip(0);
+
+    cr_assert_float_eq(s.getAmplitude(0).real(), -1.0, EPS);
+    cr_assert_float_eq(s.getAmplitude(0).imag(),  0.0, EPS);
+}
+
+Test(phase_flip, applied_twice_is_identity) {
+    QuantumState s;
+    s.initialize(1);
+    s.phaseFlip(0);
+    s.phaseFlip(0);
+
+    cr_assert_float_eq(s.getAmplitude(0).real(), 1.0, EPS);
+}
+
+Test(phase_flip, does_not_change_measurement_probability) {
+    QuantumState s;
+    s.initialize(1);
+    s.phaseFlip(0);
+
+    cr_assert_eq(s.measure(), 0);
+}
+
+/* ── phaseFlipAllExceptZero ────────────────────────────────────────────────── */
+
+Test(phase_flip_all_except_zero, ground_state_is_preserved) {
+    QuantumState s;
+    s.initialize(1);
+    s.phaseFlipAllExceptZero();
+
+    cr_assert_float_eq(s.getAmplitude(0).real(), 1.0, EPS);
+    cr_assert_float_eq(s.getAmplitude(1).real(), 0.0, EPS);
+}
+
+Test(phase_flip_all_except_zero, negates_non_zero_index_amplitudes) {
+    QuantumState s;
+    s.initialize(1);
+    s.hGate(0);
+    s.phaseFlipAllExceptZero();
+
+    double expected = 1.0 / std::sqrt(2.0);
+    cr_assert_float_eq(s.getAmplitude(0).real(),  expected, EPS);
+    cr_assert_float_eq(s.getAmplitude(1).real(), -expected, EPS);
+}
+
+/* ── applyControlledRz ─────────────────────────────────────────────────────── */
+
+Test(controlled_rz, no_effect_when_control_is_zero) {
+    QuantumState s;
+    s.initialize(2);
+    s.applyControlledRz(0, 1, M_PI);
+
+    cr_assert_float_eq(s.getAmplitude(0).real(), 1.0, EPS);
+    cr_assert_float_eq(s.getAmplitude(0).imag(), 0.0, EPS);
+}
+
+Test(controlled_rz, applies_phase_when_control_is_one) {
+    QuantumState s;
+    s.initialize(2);
+    s.xGate(0);
+    s.xGate(1);
+    s.applyControlledRz(0, 1, M_PI);
+
+    cr_assert_float_eq(s.getAmplitude(3).real(), -1.0, EPS);
+    cr_assert_float_eq(s.getAmplitude(3).imag(),  0.0, EPS);
+}
+
+Test(controlled_rz, applies_quarter_turn_phase) {
+    QuantumState s;
+    s.initialize(2);
+    s.xGate(0);
+    s.xGate(1);
+    s.applyControlledRz(0, 1, M_PI / 2.0);
+
+    cr_assert_float_eq(s.getAmplitude(3).real(), 0.0, EPS);
+    cr_assert_float_eq(s.getAmplitude(3).imag(), 1.0, EPS);
+}
+
+/* ── QFT ───────────────────────────────────────────────────────────────────── */
+
+Test(qft, one_qubit_equals_hadamard_on_ground_state) {
+    QFT qft(1);
+    qft.run();
+
+    QuantumState& state = qft.getState();
+    double expected = 1.0 / std::sqrt(2.0);
+    cr_assert_float_eq(state.getAmplitude(0).real(), expected, EPS);
+    cr_assert_float_eq(state.getAmplitude(1).real(), expected, EPS);
+}
+
+Test(qft, two_qubits_produces_uniform_superposition_on_ground_state) {
+    QFT qft(2);
+    qft.run();
+
+    QuantumState& state = qft.getState();
+    double expected = 0.5;
+    for (int i = 0; i < 4; i++)
+        cr_assert_float_eq(std::abs(state.getAmplitude(i)), expected, EPS);
+}
+
+/* ── Grover ────────────────────────────────────────────────────────────────── */
+
+Test(grover, returns_valid_index_in_range) {
+    int result = Grover(2, 1).run();
+    cr_assert(result >= 0 && result < 4,
+              "Grover(2,1) must return an index in [0,4), got %d", result);
+}
+
+Test(grover, different_targets_return_valid_indices) {
+    for (int target = 0; target < 4; target++) {
+        int result = Grover(2, target).run();
+        cr_assert(result >= 0 && result < 4,
+                  "Grover(2,%d) must return an index in [0,4), got %d", target, result);
+    }
+}
+
+/* ── DeutschJozsa ──────────────────────────────────────────────────────────── */
+
+Test(deutsch_jozsa, constant_zero_oracle_returns_constant) {
+    DeutschJozsa dj(1, [](QuantumState&) {});
+    cr_assert_eq(dj.run(), FunctionType::CONSTANT);
+}
+
+Test(deutsch_jozsa, constant_one_oracle_returns_constant) {
+    DeutschJozsa dj(1, [](QuantumState& s) { s.xGate(1); });
+    cr_assert_eq(dj.run(), FunctionType::CONSTANT);
+}
+
+Test(deutsch_jozsa, balanced_oracle_n1_returns_balanced) {
+    DeutschJozsa dj(1, [](QuantumState& s) { s.cnotGate(0, 1); });
+    cr_assert_eq(dj.run(), FunctionType::BALANCED);
+}
+
+Test(deutsch_jozsa, n2_constant_oracle_returns_constant) {
+    DeutschJozsa dj(2, [](QuantumState&) {});
+    cr_assert_eq(dj.run(), FunctionType::CONSTANT);
+}
+
+Test(deutsch_jozsa, n2_balanced_oracle_returns_balanced) {
+    DeutschJozsa dj(2, [](QuantumState& s) { s.cnotGate(0, 2); });
+    cr_assert_eq(dj.run(), FunctionType::BALANCED);
 }
