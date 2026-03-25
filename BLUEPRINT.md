@@ -65,3 +65,18 @@ To apply a gate to qubit $k$ without a $2^n \times 2^n$ matrix:
 * [x] **Probability distribution display:** Print the amplitude distribution of all basis states after a circuit run.
 * [x] **ASCII circuit drawer:** Render the gate sequence as a readable ASCII diagram in the terminal.
 * [x] **OpenMP vs SYCL benchmark:** Measure and compare wall-clock time for `applyGate` vs `applyGateSYCL` on large qubit counts (20–25 qubits).
+
+### Phase 9: Advanced quantum algorithms
+* [ ] **Shor's algorithm:** Implement integer factorisation in polynomial time — uses QFT as its core subroutine.
+* [ ] **Simon's algorithm:** Find the period of a function with a single oracle call — exponentially faster than any classical algorithm.
+* [ ] **Variational Quantum Eigensolver (VQE):** Hybrid classical/quantum algorithm to find ground-state energies using parametric circuits.
+
+### Phase 10: Realistic noise simulation
+* [ ] **Noise channels:** Model quantum decoherence with bit-flip, phase-flip, and depolarizing channels.
+* [ ] **Density matrix:** Replace the state vector with a density matrix to simulate mixed states.
+* [ ] **Imperfect gates:** Add an error parameter to gates to simulate real hardware noise.
+
+### Phase 11: Visualisation & interoperability
+* [ ] **Bloch sphere:** Render a single-qubit state on the Bloch sphere (SVG or terminal graphics).
+* [ ] **Export to Qiskit/Cirq:** Generate equivalent Python code from a loaded circuit for cross-platform validation.
+* [ ] **Interactive REPL:** A shell that accepts OpenQASM instructions in real time and updates the state live.
