@@ -67,9 +67,9 @@ To apply a gate to qubit $k$ without a $2^n \times 2^n$ matrix:
 * [x] **OpenMP vs SYCL benchmark:** Measure and compare wall-clock time for `applyGate` vs `applyGateSYCL` on large qubit counts (20–25 qubits).
 
 ### Phase 9: Advanced quantum algorithms
-* [ ] **Shor's algorithm:** Implement integer factorisation in polynomial time — uses QFT as its core subroutine.
-* [ ] **Simon's algorithm:** Find the period of a function with a single oracle call — exponentially faster than any classical algorithm.
-* [ ] **Variational Quantum Eigensolver (VQE):** Hybrid classical/quantum algorithm to find ground-state energies using parametric circuits.
+* [x] **Shor's algorithm:** Implement integer factorisation in polynomial time — uses QFT as its core subroutine.
+* [x] **Simon's algorithm:** Find the period of a function with a single oracle call — exponentially faster than any classical algorithm.
+* [x] **Variational Quantum Eigensolver (VQE):** Hybrid classical/quantum algorithm to find ground-state energies using parametric circuits.
 
 ### Phase 10: Realistic noise simulation
 * [ ] **Noise channels:** Model quantum decoherence with bit-flip, phase-flip, and depolarizing channels.

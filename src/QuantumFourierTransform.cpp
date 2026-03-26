@@ -38,15 +38,19 @@ QuantumState& QFT::getState() {
  * Total gate count: n·H + n(n-1)/2·CRz + floor(n/2)·SWAP = O(n²).
  */
 void QFT::run() {
+    applyQFT(this->state, this->n_qubits);
+}
+
+void QFT::applyQFT(QuantumState& s, int n_qubits) {
     for (int j=0; j<n_qubits; j++) {
-        state.hGate(j);
+        s.hGate(j);
         for (int k=j+1; k<n_qubits; k++) {
-            double theta = (2.0 * M_PI) / (1 << (k - j + 1));
-            state.applyControlledRz(k, j, theta);
+            double theta = (2.0 * M_PI) / (1LL << (k - j + 1));
+            s.applyControlledRz(k, j, theta);
         }
     }
     int loop_size = n_qubits/2;
     for (int i=0; i<loop_size; i++) {
-        state.swapGate(i, n_qubits-1-i);
+        s.swapGate(i, n_qubits-1-i);
     }
 }

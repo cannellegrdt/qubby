@@ -12,6 +12,9 @@
 #include "QuantumFourierTransform.hpp"
 #include "Grover.hpp"
 #include "DeutschJozsa.hpp"
+#include "Shor.hpp"
+#include "Simon.hpp"
+#include "VariationalQuantumEigensolver.hpp"
 #include <cmath>
 #include <stdexcept>
 
@@ -861,4 +864,175 @@ Test(quantum_circuit, print_state_shows_excited_state, .init = cr_redirect_stdou
 
     cr_assert(out.find("100") != std::string::npos, "printState must show 100%% probability");
     cr_assert(out.find("1")   != std::string::npos, "printState must show binary '1'");
+}
+
+/* ── Simon's algorithm ─────────────────────────────────────────────────────── */
+
+Test(simon, detects_period_s1_n2) {
+    Simon simon;
+    int s = simon.run(2, [](int x) { return x >> 1; });
+
+    cr_assert_eq(s, 1);
+}
+
+Test(simon, detects_period_s2_n2) {
+    Simon simon;
+    int s = simon.run(2, [](int x) { return x & 1; });
+
+    cr_assert_eq(s, 2);
+}
+
+Test(simon, detects_period_s1_n3) {
+    Simon simon;
+    int s = simon.run(3, [](int x) { return x >> 1; });
+
+    cr_assert_eq(s, 1);
+}
+
+Test(simon, detects_period_s2_n3) {
+    Simon simon;
+    /* secret s=2=010: f(x)=f(x^2), oracle maps each pair to its minimum */
+    int s = simon.run(3, [](int x) { int y = x ^ 2; return x < y ? x : y; });
+
+    cr_assert_eq(s, 2);
+}
+
+Test(simon, detects_period_s4_n3) {
+    Simon simon;
+    /* secret s=4=100: f(x)=f(x^4) */
+    int s = simon.run(3, [](int x) { int y = x ^ 4; return x < y ? x : y; });
+
+    cr_assert_eq(s, 4);
+}
+
+Test(simon, detects_period_s1_n4) {
+    Simon simon;
+    /* secret s=1: f(x)=x>>1 works for any n since the LSB is the period */
+    int s = simon.run(4, [](int x) { return x >> 1; });
+
+    cr_assert_eq(s, 1);
+}
+
+/* ── Shor's algorithm ──────────────────────────────────────────────────────── */
+
+Test(shor, modular_oracle_does_not_crash) {
+    Shor shor;
+    cr_assert_no_throw(shor.run(15), std::exception);
+}
+
+Test(shor, run_returns_valid_factors_of_15) {
+    Shor shor;
+    auto [p, q] = shor.run(15);
+    if (p != -1) {
+        cr_assert_eq(p * q, 15, "p * q doit être 15");
+        cr_assert(p > 1 && q > 1, "les deux facteurs doivent être non-triviaux");
+    }
+}
+
+Test(shor, run_returns_valid_factors_of_21) {
+    Shor shor;
+    auto [p, q] = shor.run(21);
+    if (p != -1) {
+        cr_assert_eq(p * q, 21, "p * q doit être 21");
+        cr_assert(p > 1 && q > 1, "les deux facteurs doivent être non-triviaux");
+    }
+}
+
+/* ── VQE ───────────────────────────────────────────────────────────────────── */
+
+Test(vqe, constructor_does_not_crash) {
+    VQE vqe(1, {{1.0, {PauliOp::Z}}});
+}
+
+Test(vqe, get_optimal_params_is_empty_before_run) {
+    VQE vqe(1, {{1.0, {PauliOp::Z}}});
+
+    cr_assert_eq(vqe.getOptimalParams().size(), 0);
+}
+
+Test(vqe, run_converges_toward_ground_state_single_z) {
+    VQE vqe(1, {{1.0, {PauliOp::Z}}});
+
+    double energy = vqe.run();
+    cr_assert_lt(energy, -0.9, "VQE doit converger vers E ≈ −1 pour H = Z₀");
+}
+
+Test(vqe, get_optimal_params_has_correct_size_after_run) {
+    VQE vqe(2, {{1.0, {PauliOp::Z, PauliOp::Z}}});
+    vqe.run();
+
+    cr_assert_eq(vqe.getOptimalParams().size(), 2u);
+}
+
+Test(vqe, run_converges_toward_ground_state_two_qubit_zz) {
+    VQE vqe(2, {{1.0, {PauliOp::Z, PauliOp::Z}}});
+
+    double energy = vqe.run();
+    cr_assert_lt(energy, -0.9, "VQE doit converger vers E ≈ −1 pour H = Z₀⊗Z₁");
+}
+
+Test(vqe, run_with_identity_term_returns_coefficient) {
+    VQE vqe(1, {{2.5, {PauliOp::I}}});
+
+    double energy = vqe.run();
+    cr_assert_float_eq(energy, 2.5, 1e-9);
+}
+
+/* ── Shor — failure path ────────────────────────────────────────────────────── */
+
+Test(shor, run_returns_failure_for_prime_input) {
+    Shor shor;
+    auto [p, q] = shor.run(5);
+    cr_assert_eq(p, -1);
+    cr_assert_eq(q, -1);
+}
+
+/* ── draw — swap and ccx symbols ────────────────────────────────────────────── */
+
+Test(quantum_circuit, draw_includes_swap_symbol, .init = cr_redirect_stdout) {
+    QuantumCircuit c(2);
+    c.load("tests/functional/circuits/swap_circuit.qasm");
+    c.draw();
+    fflush(stdout);
+
+    FILE* f = cr_get_redirected_stdout();
+    rewind(f);
+    char buf[1024] = {};
+    fread(buf, 1, sizeof(buf) - 1, f);
+    std::string out(buf);
+
+    cr_assert(out.find("×") != std::string::npos, "draw() must show × for swap gate");
+}
+
+Test(quantum_circuit, draw_includes_ccx_symbols, .init = cr_redirect_stdout) {
+    QuantumCircuit c(3);
+    c.load("tests/functional/circuits/ccx_circuit.qasm");
+    c.draw();
+    fflush(stdout);
+
+    FILE* f = cr_get_redirected_stdout();
+    rewind(f);
+    char buf[1024] = {};
+    fread(buf, 1, sizeof(buf) - 1, f);
+    std::string out(buf);
+
+    cr_assert(out.find("●") != std::string::npos, "draw() must show ● for ccx control qubits");
+}
+
+/* ── draw — non-adjacent cx produces │ pipe between qubits ─────────────────── */
+
+Test(quantum_circuit, draw_pipe_for_nonadjacent_cx, .init = cr_redirect_stdout) {
+    QuantumCircuit c(3);
+    c.load("tests/functional/circuits/cx_nonadjacent.qasm");
+    c.draw();
+    fflush(stdout);
+
+    FILE* f = cr_get_redirected_stdout();
+    rewind(f);
+    char buf[1024] = {};
+    fread(buf, 1, sizeof(buf) - 1, f);
+    std::string out(buf);
+
+    cr_assert(out.find("│") != std::string::npos, "draw() must show │ for qubits between cx operands");
+    cr_assert(out.find("●") != std::string::npos, "draw() must show ● for cx control qubit");
 }

@@ -319,6 +319,8 @@ class QuantumState {
          * Basis states with negligible probability are silently skipped.
          */
         void printState();
+
+        void setAmplitude(int i, std::complex<double> val);
 };
 
 #endif /* QUANTUMSTATE_HPP_ */

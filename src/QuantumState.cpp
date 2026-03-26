@@ -10,6 +10,7 @@
 #include <string>
 #include <stdint.h>
 #include <random>
+#include <chrono>
 #include <algorithm>
 #include <omp.h>
 #include <iostream>
@@ -54,7 +55,7 @@ void QuantumState::applyGate(int targetQubit, Matrix quantumGate) {
     long long loop_size = (1LL << (this->num_qubits-1));
 
     #pragma omp parallel for
-    for (int i=0; i<loop_size; i++) {
+    for (long long i=0; i<loop_size; i++) {
         uint64_t mask = (1ULL << targetQubit) - 1;
         uint64_t i0 = ((i >> targetQubit) << (targetQubit + 1)) | (i & mask);
         uint64_t i1 = i0 | (1ULL << targetQubit);
@@ -119,7 +120,7 @@ void QuantumState::rzGate(double theta, int targetQubit) {
 void QuantumState::cnotGate(int controlQubit, int targetQubit) {
     long long loop_size = (1LL << (this->num_qubits-1));
 
-    for (int i=0; i<loop_size; i++) {
+    for (long long i=0; i<loop_size; i++) {
         uint64_t mask = (1ULL << targetQubit) - 1;
         uint64_t i0 = ((i >> targetQubit) << (targetQubit + 1)) | (i & mask);
         uint64_t i1 = i0 | (1ULL << targetQubit);
@@ -155,7 +156,7 @@ void QuantumState::swapGate(int q0, int q1) {
 void QuantumState::toffoliGate(int c0, int c1, int targetQubit) {
     long long loop_size = (1LL << (this->num_qubits-1));
 
-    for (int i=0; i<loop_size; i++) {
+    for (long long i=0; i<loop_size; i++) {
         uint64_t mask = (1ULL << targetQubit) - 1;
         uint64_t i0 = ((i >> targetQubit) << (targetQubit + 1)) | (i & mask);
         uint64_t i1 = i0 | (1ULL << targetQubit);
@@ -175,8 +176,10 @@ void QuantumState::toffoliGate(int c0, int c1, int targetQubit) {
  * 2. Draw one sample from std::discrete_distribution (non-uniform, weighted by p).
  * 3. Collapse the state: zero all amplitudes, then set amplitudes[result] = 1.0.
  *
- * std::random_device seeds a Mersenne Twister (std::mt19937) for each call,
- * so consecutive measurements of the same state are statistically independent.
+ * A static std::mt19937 is seeded once at startup (random_device XOR'd with the
+ * current time) so that each call advances the same generator rather than
+ * re-seeding it, which would produce identical sequences on platforms where
+ * std::random_device is deterministic.
  *
  * @note The state is mutated after this call - it is no longer a superposition.
  *       Call initialize() to reset, or save a copy before measuring.
@@ -186,8 +189,12 @@ int QuantumState::measure() {
     for (const auto &amp : amplitudes) {
         probabilities.push_back(std::norm(amp));
     }
-    std::random_device rd;
-    std::mt19937 gen(rd());
+    static std::mt19937 gen = []() {
+        std::random_device rd;
+        auto seed = rd() ^ static_cast<uint32_t>(
+            std::chrono::high_resolution_clock::now().time_since_epoch().count());
+        return std::mt19937(seed);
+    }();
     std::discrete_distribution<> dist(probabilities.begin(), probabilities.end());
     int index = dist(gen);
 
@@ -216,8 +223,12 @@ int QuantumState::measureQubit(int k) {
             p1 += std::norm(amplitudes[i]);
     }
 
-    std::random_device rd;
-    std::mt19937 gen(rd());
+    static std::mt19937 gen = []() {
+        std::random_device rd;
+        auto seed = rd() ^ static_cast<uint32_t>(
+            std::chrono::high_resolution_clock::now().time_since_epoch().count());
+        return std::mt19937(seed);
+    }();
     std::bernoulli_distribution dist(p1);
     int index = dist(gen) ? 1 : 0;
 
@@ -263,7 +274,7 @@ void QuantumState::applyControlledRz(int control, int target, double theta) {
     long long loop_size = (1LL << (this->num_qubits-1));
 
     #pragma omp parallel for
-    for (int i=0; i<loop_size; i++) {
+    for (long long i=0; i<loop_size; i++) {
         uint64_t mask = (1ULL << target) - 1;
         uint64_t i0 = ((i >> target) << (target + 1)) | (i & mask);
         uint64_t i1 = i0 | (1ULL << target);
@@ -302,4 +313,8 @@ void QuantumState::printState() {
                     << "  (" << (probability * 100.0) << "%)\n";
         }
     }
+}
+
+void QuantumState::setAmplitude(int i, std::complex<double> val) {
+    amplitudes[i] = val;
 }

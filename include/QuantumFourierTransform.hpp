@@ -63,6 +63,8 @@ class QFT {
          * @return Reference to the internal QuantumState.
          */
         QuantumState &getState();
+
+        void applyQFT(QuantumState& s, int n_qubits);
 };
 
 #endif /* QUANTUMFOURIER_TRANSFORM_HPP_ */
