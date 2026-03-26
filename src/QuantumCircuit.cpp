@@ -80,7 +80,7 @@ double parseQubitIndexPar(std::string token) {
  * @details
  * The parser reads the file line by line. For each line:
  * 1. Block-comment tracking: if `in_block_comment` is true, scan for `*\/` and skip
- *    everything up to (and including) it; otherwise scan for `/*` and strip the rest.
+ *    everything up to (and including) it; otherwise scan for `/*` and strip the rest. // NOLINT
  * 2. Extract the first token as the gate name. Skip the line if it starts with `//`.
  * 3. For single-qubit gates (`h`, `x`, `z`): read one `q[N]` token, parse the index,
  *    and dispatch to the corresponding lambda in the `simple_gates` map.

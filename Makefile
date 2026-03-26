@@ -139,8 +139,8 @@ format:
 	  echo "clang-format not found — skipping"
 
 lint:
-	clang-tidy $(SRCS) -- $(CXXFLAGS) $(INC_FLAGS) 2>/dev/null || \
-	  echo "clang-tidy not found — skipping"
+	@command -v clang-tidy >/dev/null 2>&1 || { echo "clang-tidy not found — skipping"; exit 0; }
+	clang-tidy $(SRCS) -- $(CXXFLAGS) $(OMPFLAGS) $(INC_FLAGS)
 
 help:
 	@echo "Targets:"
