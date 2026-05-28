@@ -77,6 +77,6 @@ To apply a gate to qubit $k$ without a $2^n \times 2^n$ matrix:
 * [x] **Imperfect gates:** Add an error parameter to gates to simulate real hardware noise.
 
 ### Phase 11: Visualisation & interoperability
-* [ ] **Bloch sphere:** Render a single-qubit state on the Bloch sphere (SVG or terminal graphics).
-* [ ] **Export to Qiskit/Cirq:** Generate equivalent Python code from a loaded circuit for cross-platform validation.
-* [ ] **Interactive REPL:** A shell that accepts OpenQASM instructions in real time and updates the state live.
+* [x] **Bloch sphere:** Render a single-qubit state on the Bloch sphere (SVG or terminal graphics).
+* [x] **Export to Qiskit/Cirq:** Generate equivalent Python code from a loaded circuit for cross-platform validation.
+* [x] **Interactive REPL:** A shell that accepts OpenQASM instructions in real time and updates the state live.

@@ -9,6 +9,7 @@
 #include <criterion/redirect.h>
 #include "QuantumState.hpp"
 #include "QuantumCircuit.hpp"
+#include "BlochSphere.hpp"
 #include "DensityMatrix.hpp"
 #include "QuantumFourierTransform.hpp"
 #include "Grover.hpp"
@@ -17,6 +18,7 @@
 #include "Simon.hpp"
 #include "VariationalQuantumEigensolver.hpp"
 #include <cmath>
+#include <fstream>
 #include <stdexcept>
 #include <numeric>
 
@@ -1146,6 +1148,257 @@ Test(vqe, run_with_identity_term_returns_coefficient) {
 
     double energy = vqe.run();
     cr_assert_float_eq(energy, 2.5, 1e-9);
+}
+
+/* ── initialize: reinitialisation bug regression ───────────────────────────── */
+
+Test(initialize, reinitialize_after_measure_clears_amplitudes) {
+    QuantumState s;
+    s.initialize(1);
+    s.xGate(0);
+    cr_assert_eq(s.measure(), 1);
+
+    s.initialize(1);
+    cr_assert_float_eq(s.getAmplitude(0).real(), 1.0, EPS);
+    cr_assert_float_eq(s.getAmplitude(1).real(), 0.0, EPS);
+}
+
+Test(initialize, reinitialize_after_measure_correct_measurement) {
+    QuantumState s;
+    s.initialize(1);
+    s.xGate(0);
+    s.measure();
+    s.initialize(1);
+
+    cr_assert_eq(s.measure(), 0);
+}
+
+/* ── BlochSphere::compute ───────────────────────────────────────────────────── */
+
+Test(bloch_sphere, ground_state_is_north_pole) {
+    QuantumState s;
+    s.initialize(1);
+    auto bv = BlochSphere::compute(s, 0);
+
+    cr_assert_float_eq(bv.x,    0.0, EPS);
+    cr_assert_float_eq(bv.y,    0.0, EPS);
+    cr_assert_float_eq(bv.z,    1.0, EPS);
+    cr_assert_float_eq(bv.norm, 1.0, EPS);
+}
+
+Test(bloch_sphere, excited_state_is_south_pole) {
+    QuantumState s;
+    s.initialize(1);
+    s.xGate(0);
+    auto bv = BlochSphere::compute(s, 0);
+
+    cr_assert_float_eq(bv.x,    0.0, EPS);
+    cr_assert_float_eq(bv.y,    0.0, EPS);
+    cr_assert_float_eq(bv.z,   -1.0, EPS);
+    cr_assert_float_eq(bv.norm, 1.0, EPS);
+}
+
+Test(bloch_sphere, hadamard_state_lies_on_x_axis) {
+    /* H|0⟩ = |+⟩ → Bloch vector (1, 0, 0) */
+    QuantumState s;
+    s.initialize(1);
+    s.hGate(0);
+    auto bv = BlochSphere::compute(s, 0);
+
+    cr_assert_float_eq(bv.x,    1.0, EPS);
+    cr_assert_float_eq(bv.y,    0.0, EPS);
+    cr_assert_float_eq(bv.z,    0.0, EPS);
+    cr_assert_float_eq(bv.norm, 1.0, EPS);
+}
+
+Test(bloch_sphere, pure_state_has_unit_norm) {
+    QuantumState s;
+    s.initialize(1);
+    s.ryGate(M_PI / 3.0, 0);
+    auto bv = BlochSphere::compute(s, 0);
+
+    cr_assert_float_eq(bv.norm, 1.0, EPS);
+}
+
+Test(bloch_sphere, bell_state_qubit_is_fully_mixed) {
+    QuantumState s;
+    s.initialize(2);
+    s.hGate(0);
+    s.cnotGate(0, 1);
+    auto bv = BlochSphere::compute(s, 0);
+
+    cr_assert_float_eq(bv.x,    0.0, 1e-9);
+    cr_assert_float_eq(bv.y,    0.0, 1e-9);
+    cr_assert_float_eq(bv.z,    0.0, 1e-9);
+    cr_assert_float_eq(bv.norm, 0.0, 1e-9);
+}
+
+Test(bloch_sphere, out_of_range_qubit_throws) {
+    QuantumState s;
+    s.initialize(2);
+    cr_assert_throw(BlochSphere::compute(s, 5), std::runtime_error);
+    cr_assert_throw(BlochSphere::compute(s, -1), std::runtime_error);
+}
+
+Test(bloch_sphere, second_qubit_of_product_state) {
+    /* X on qubit 1 of a 2-qubit system: qubit 1 is |1⟩ → south pole */
+    QuantumState s;
+    s.initialize(2);
+    s.xGate(1);
+    auto bv = BlochSphere::compute(s, 1);
+
+    cr_assert_float_eq(bv.z,   -1.0, EPS);
+    cr_assert_float_eq(bv.norm, 1.0, EPS);
+}
+
+/* ── QuantumCircuit::executeInstruction ─────────────────────────────────────── */
+
+Test(execute_instruction, h_gate_creates_superposition) {
+    QuantumCircuit c(1);
+    c.executeInstruction("h q[0]");
+    auto bv = c.blochVector(0);
+
+    cr_assert_float_eq(bv.x, 1.0, EPS);
+    cr_assert_float_eq(bv.z, 0.0, EPS);
+}
+
+Test(execute_instruction, strips_trailing_semicolon) {
+    QuantumCircuit c(1);
+    c.executeInstruction("x q[0];");
+    cr_assert_eq(c.measure(), 1);
+}
+
+Test(execute_instruction, strips_line_comment) {
+    QuantumCircuit c(1);
+    c.executeInstruction("x q[0] // flip qubit");
+    cr_assert_eq(c.measure(), 1);
+}
+
+Test(execute_instruction, empty_line_is_ignored) {
+    QuantumCircuit c(1);
+    cr_assert_no_throw(c.executeInstruction(""));
+    cr_assert_no_throw(c.executeInstruction("   "));
+}
+
+Test(execute_instruction, unknown_gate_throws) {
+    QuantumCircuit c(1);
+    cr_assert_throw(c.executeInstruction("foo q[0]"), std::runtime_error);
+}
+
+Test(execute_instruction, qreg_reinitializes_qubit_count) {
+    QuantumCircuit c(1);
+    c.executeInstruction("qreg q[3]");
+    cr_assert_eq(c.getNumQubits(), 3);
+}
+
+Test(execute_instruction, cx_creates_bell_state) {
+    QuantumCircuit c(2);
+    c.executeInstruction("h q[0]");
+    c.executeInstruction("cx q[0] q[1]");
+    int result = c.measure();
+    cr_assert(result == 0 || result == 3,
+              "Bell state measurement must be 0 or 3, got %d", result);
+}
+
+Test(execute_instruction, parametric_rx_pi_measures_one) {
+    QuantumCircuit c(1);
+    c.executeInstruction("rx(pi) q[0]");
+    cr_assert_eq(c.measure(), 1);
+}
+
+/* ── QuantumCircuit accessors ───────────────────────────────────────────────── */
+
+Test(quantum_circuit, get_num_qubits_returns_constructor_value) {
+    QuantumCircuit c(4);
+    cr_assert_eq(c.getNumQubits(), 4);
+}
+
+Test(quantum_circuit, is_noisy_false_by_default) {
+    QuantumCircuit c(2);
+    cr_assert(!c.isNoisy());
+}
+
+Test(quantum_circuit, is_noisy_true_after_valid_noise) {
+    QuantumCircuit c(2);
+    c.validNoise(0.01);
+    cr_assert(c.isNoisy());
+}
+
+Test(quantum_circuit, bloch_vector_throws_when_noisy) {
+    QuantumCircuit c(2);
+    c.validNoise(0.01);
+    cr_assert_throw(c.blochVector(0), std::runtime_error);
+}
+
+Test(quantum_circuit, bloch_vector_ground_state_is_north_pole) {
+    QuantumCircuit c(1);
+    auto bv = c.blochVector(0);
+    cr_assert_float_eq(bv.z,    1.0, EPS);
+    cr_assert_float_eq(bv.norm, 1.0, EPS);
+}
+
+/* ── QuantumCircuit::exportQiskit ───────────────────────────────────────────── */
+
+Test(export_qiskit, produces_file_with_circuit_header) {
+    QuantumCircuit c(2);
+    c.load("tests/functional/circuits/bell_state.qasm");
+    c.exportQiskit("/tmp/test_export.py");
+
+    std::ifstream f("/tmp/test_export.py");
+    cr_assert(f.is_open(), "exportQiskit must create the output file");
+
+    std::string content((std::istreambuf_iterator<char>(f)),
+                         std::istreambuf_iterator<char>());
+    cr_assert(content.find("QuantumCircuit") != std::string::npos,
+              "Qiskit export must contain 'QuantumCircuit'");
+    cr_assert(content.find("qc.h(0)")       != std::string::npos,
+              "Qiskit export must contain 'qc.h(0)'");
+    cr_assert(content.find("qc.cx(0, 1)")   != std::string::npos,
+              "Qiskit export must contain 'qc.cx(0, 1)'");
+    cr_assert(content.find("measure_all")   != std::string::npos,
+              "Qiskit export must contain 'measure_all'");
+}
+
+Test(export_qiskit, preserves_rotation_angle) {
+    QuantumCircuit c(1);
+    c.load("tests/functional/circuits/rx_pi.qasm");
+    c.exportQiskit("/tmp/test_rx_export.py");
+
+    std::ifstream f("/tmp/test_rx_export.py");
+    std::string content((std::istreambuf_iterator<char>(f)),
+                         std::istreambuf_iterator<char>());
+    cr_assert(content.find("qc.rx(") != std::string::npos,
+              "Qiskit export must contain qc.rx(");
+}
+
+Test(export_qiskit, throws_on_bad_file_path) {
+    QuantumCircuit c(1);
+    cr_assert_throw(c.exportQiskit("/nonexistent/dir/out.py"), std::runtime_error);
+}
+
+/* ── QuantumCircuit::exportCirq ─────────────────────────────────────────────── */
+
+Test(export_cirq, produces_file_with_circuit_header) {
+    QuantumCircuit c(2);
+    c.load("tests/functional/circuits/bell_state.qasm");
+    c.exportCirq("/tmp/test_export_cirq.py");
+
+    std::ifstream f("/tmp/test_export_cirq.py");
+    cr_assert(f.is_open(), "exportCirq must create the output file");
+
+    std::string content((std::istreambuf_iterator<char>(f)),
+                         std::istreambuf_iterator<char>());
+    cr_assert(content.find("import cirq")    != std::string::npos,
+              "Cirq export must contain 'import cirq'");
+    cr_assert(content.find("cirq.H(q[0])")  != std::string::npos,
+              "Cirq export must contain 'cirq.H(q[0])'");
+    cr_assert(content.find("cirq.CNOT")     != std::string::npos,
+              "Cirq export must contain 'cirq.CNOT'");
+}
+
+Test(export_cirq, throws_on_bad_file_path) {
+    QuantumCircuit c(1);
+    cr_assert_throw(c.exportCirq("/nonexistent/dir/out.py"), std::runtime_error);
 }
 
 /* ── Shor — failure path ────────────────────────────────────────────────────── */

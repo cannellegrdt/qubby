@@ -195,7 +195,7 @@ void QuantumCircuit::load(std::string filename) {
                     applyNoise({qubitIndex});
                 } else
                     it_multi->second(theta, qubitIndex);
-                circuitLog.push_back({base, {qubitIndex}});
+                circuitLog.push_back({base, {qubitIndex}, theta});
 
             } else if (command == "cx") {
                 std::string token2;
@@ -368,6 +368,197 @@ void QuantumCircuit::printState() {
  * Must be called before load() — gate applications that occurred before this call
  * will not be reflected in the density matrix.
  */
+int QuantumCircuit::getNumQubits() const { return numQubits; }
+bool QuantumCircuit::isNoisy() const { return noiseActivated; }
+
+BlochSphere::BlochVector QuantumCircuit::blochVector(int qubit) const {
+    if (noiseActivated)
+        throw std::runtime_error(
+            "Bloch sphere requires pure-state backend — do not use --noise");
+    return BlochSphere::compute(state, qubit);
+}
+
+/**
+ * @details
+ * Mirrors the parsing logic of load() for a single line. Block-comment stripping
+ * is intentionally omitted (the REPL processes one line at a time). Steps:
+ *  1. Strip trailing `;`, line-comment `//...`, and surrounding whitespace.
+ *  2. Extract the first token as the gate name.
+ *  3. Dispatch to the same gate/DM backends as load(), and update circuitLog.
+ */
+void QuantumCircuit::executeInstruction(const std::string& line) {
+    std::string stripped = line;
+
+    auto cpos = stripped.find("//");
+    if (cpos != std::string::npos)
+        stripped = stripped.substr(0, cpos);
+
+    while (!stripped.empty() &&
+           (stripped.back() == ';' || stripped.back() == ' ' || stripped.back() == '\t'))
+        stripped.pop_back();
+
+    if (stripped.empty()) return;
+
+    std::istringstream iss(stripped);
+    std::string command;
+    if (!(iss >> command) || command.starts_with("//")) return;
+
+    std::string token;
+    iss >> token;
+
+    auto applyNoise = [this](std::vector<int> qubits) {
+        if (!noiseActivated || noiseModel.depolarizeRate <= 0.0) return;
+        for (int q : qubits)
+            dm.applyDepolarizing(q, noiseModel.depolarizeRate);
+    };
+
+    std::string base = command.substr(0, command.find('('));
+
+    if (command == "h" || command == "x" || command == "z") {
+        int q = parseQubitIndexPos(token);
+        if (noiseActivated) {
+            if (command == "h") dm.hGate(q);
+            else if (command == "x") dm.xGate(q);
+            else dm.zGate(q);
+            applyNoise({q});
+        } else {
+            if (command == "h") state.hGate(q);
+            else if (command == "x") state.xGate(q);
+            else state.zGate(q);
+        }
+        circuitLog.push_back({command, {q}});
+
+    } else if (base == "rx" || base == "ry" || base == "rz") {
+        int q = parseQubitIndexPos(token);
+        double theta = parseQubitIndexPar(command);
+        if (noiseActivated) {
+            if (base == "rx") dm.rxGate(theta, q);
+            else if (base == "ry") dm.ryGate(theta, q);
+            else dm.rzGate(theta, q);
+            applyNoise({q});
+        } else {
+            if (base == "rx") state.rxGate(theta, q);
+            else if (base == "ry") state.ryGate(theta, q);
+            else state.rzGate(theta, q);
+        }
+        circuitLog.push_back({base, {q}, theta});
+
+    } else if (command == "cx") {
+        std::string token2;
+        iss >> token2;
+        int q0 = parseQubitIndexPos(token);
+        int q1 = parseQubitIndexPos(token2);
+        if (noiseActivated) { dm.cnotGate(q0, q1); applyNoise({q0, q1}); }
+        else state.cnotGate(q0, q1);
+        circuitLog.push_back({"cx", {q0, q1}});
+
+    } else if (command == "swap") {
+        std::string token2;
+        iss >> token2;
+        int q0 = parseQubitIndexPos(token);
+        int q1 = parseQubitIndexPos(token2);
+        if (noiseActivated) { dm.swapGate(q0, q1); applyNoise({q0, q1}); }
+        else state.swapGate(q0, q1);
+        circuitLog.push_back({"swap", {q0, q1}});
+
+    } else if (command == "ccx") {
+        std::string token2, token3;
+        iss >> token2 >> token3;
+        int q0 = parseQubitIndexPos(token);
+        int q1 = parseQubitIndexPos(token2);
+        int q2 = parseQubitIndexPos(token3);
+        if (noiseActivated) { dm.toffoliGate(q0, q1, q2); applyNoise({q0, q1, q2}); }
+        else state.toffoliGate(q0, q1, q2);
+        circuitLog.push_back({"ccx", {q0, q1, q2}});
+
+    } else if (command == "qreg") {
+        int n = parseQubitIndexPos(token);
+        state.initialize(n);
+        numQubits = n;
+        circuitLog.clear();
+        if (noiseActivated) {
+            if (n > DM_MAX_QUBITS)
+                throw std::runtime_error(
+                    "Noise simulation limited to " + std::to_string(DM_MAX_QUBITS) + " qubits");
+            dm.initialize(n);
+        }
+    } else {
+        throw std::runtime_error("Gate " + command + " not found");
+    }
+}
+
+void QuantumCircuit::exportQiskit(const std::string& filename) const {
+    std::ofstream f(filename);
+    if (!f.is_open())
+        throw std::runtime_error("Cannot open file: " + filename);
+
+    f << "from qiskit import QuantumCircuit\n\n";
+    f << "qc = QuantumCircuit(" << numQubits << ")\n";
+
+    for (const auto& g : circuitLog) {
+        if (g.name == "h")
+            f << "qc.h("    << g.qubits[0] << ")\n";
+        else if (g.name == "x")
+            f << "qc.x("    << g.qubits[0] << ")\n";
+        else if (g.name == "z")
+            f << "qc.z("    << g.qubits[0] << ")\n";
+        else if (g.name == "rx")
+            f << "qc.rx("   << g.param << ", " << g.qubits[0] << ")\n";
+        else if (g.name == "ry")
+            f << "qc.ry("   << g.param << ", " << g.qubits[0] << ")\n";
+        else if (g.name == "rz")
+            f << "qc.rz("   << g.param << ", " << g.qubits[0] << ")\n";
+        else if (g.name == "cx")
+            f << "qc.cx("   << g.qubits[0] << ", " << g.qubits[1] << ")\n";
+        else if (g.name == "swap")
+            f << "qc.swap(" << g.qubits[0] << ", " << g.qubits[1] << ")\n";
+        else if (g.name == "ccx")
+            f << "qc.ccx("  << g.qubits[0] << ", " << g.qubits[1] << ", " << g.qubits[2] << ")\n";
+    }
+
+    f << "\nqc.measure_all()\n";
+    f << "print(qc.draw())\n";
+    std::cout << "Exported Qiskit circuit: " << filename << "\n";
+}
+
+void QuantumCircuit::exportCirq(const std::string& filename) const {
+    std::ofstream f(filename);
+    if (!f.is_open())
+        throw std::runtime_error("Cannot open file: " + filename);
+
+    f << "import cirq\n\n";
+    f << "q = [cirq.LineQubit(i) for i in range(" << numQubits << ")]\n";
+    f << "circuit = cirq.Circuit()\n\n";
+
+    for (const auto& g : circuitLog) {
+        if (g.name == "h")
+            f << "circuit.append(cirq.H(q[" << g.qubits[0] << "]))\n";
+        else if (g.name == "x")
+            f << "circuit.append(cirq.X(q[" << g.qubits[0] << "]))\n";
+        else if (g.name == "z")
+            f << "circuit.append(cirq.Z(q[" << g.qubits[0] << "]))\n";
+        else if (g.name == "rx")
+            f << "circuit.append(cirq.rx(rads=" << g.param << ")(q[" << g.qubits[0] << "]))\n";
+        else if (g.name == "ry")
+            f << "circuit.append(cirq.ry(rads=" << g.param << ")(q[" << g.qubits[0] << "]))\n";
+        else if (g.name == "rz")
+            f << "circuit.append(cirq.rz(rads=" << g.param << ")(q[" << g.qubits[0] << "]))\n";
+        else if (g.name == "cx")
+            f << "circuit.append(cirq.CNOT(q[" << g.qubits[0] << "], q[" << g.qubits[1] << "]))\n";
+        else if (g.name == "swap")
+            f << "circuit.append(cirq.SWAP(q[" << g.qubits[0] << "], q[" << g.qubits[1] << "]))\n";
+        else if (g.name == "ccx")
+            f << "circuit.append(cirq.CCNOT(q[" << g.qubits[0] << "], q[" << g.qubits[1]
+              << "], q[" << g.qubits[2] << "]))\n";
+    }
+
+    f << "\nprint(circuit)\n";
+    f << "simulator = cirq.Simulator()\n";
+    f << "result = simulator.simulate(circuit)\n";
+    f << "print(result)\n";
+    std::cout << "Exported Cirq circuit: " << filename << "\n";
+}
+
 void QuantumCircuit::validNoise(double errorRate) {
     if (numQubits > DM_MAX_QUBITS)
         throw std::runtime_error(

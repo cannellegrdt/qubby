@@ -35,7 +35,7 @@ void QuantumState::initialize(int n) {
     if (mb > MB_LIMIT)
         throw std::runtime_error("Requested memory (" + std::to_string(mb) + "MB) exceeds limit (512 MB)");
 
-    amplitudes.resize(size);
+    amplitudes.assign(size, std::complex<double>(0.0, 0.0));
     amplitudes[0] = 1.0;
 }
 
@@ -317,4 +317,8 @@ void QuantumState::printState() {
 
 void QuantumState::setAmplitude(int i, std::complex<double> val) {
     amplitudes[i] = val;
+}
+
+int QuantumState::getNumQubits() const {
+    return num_qubits;
 }

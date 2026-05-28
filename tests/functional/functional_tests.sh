@@ -178,6 +178,86 @@ run_test "noise_ascii_draw_ends_with_measurement" \
     0 "Measurement:" \
     "$BINARY" "$CIRCUITS/bell_state.qasm" 2 --noise --ascii
 
+# 27. --bloch=0 on x_gate (|1⟩): output contains |r| and south pole info
+run_test "bloch_x_gate_shows_r_equal_one" \
+    0 "\|r\| = 1" \
+    "$BINARY" "$CIRCUITS/x_gate.qasm" 1 --bloch=0
+
+# 28. --bloch=0 on ground state: Bloch z component is positive (north pole)
+run_test "bloch_ground_state_shows_output" \
+    0 "Bloch sphere" \
+    "$BINARY" "$CIRCUITS/hh_identity.qasm" 1 --bloch=0
+
+# 29. --bloch with --noise active: prints a warning, still exits 0
+run_test "bloch_with_noise_prints_warning" \
+    0 "Warning:" \
+    "$BINARY" "$CIRCUITS/x_gate.qasm" 1 --noise --bloch=0
+
+# 30. --bloch-svg + --bloch-file creates an SVG file containing '<svg'
+run_test "bloch_svg_creates_valid_file" \
+    0 "Saved Bloch sphere SVG" \
+    "$BINARY" "$CIRCUITS/x_gate.qasm" 1 --bloch-svg=0 --bloch-file=/tmp/qubby_test.svg
+if grep -q "<svg" /tmp/qubby_test.svg 2>/dev/null; then
+    pass "bloch_svg_file_contains_svg_element"
+else
+    fail "bloch_svg_file_contains_svg_element"
+fi
+
+# 32. --export-qiskit produces a Python file with QuantumCircuit
+run_test "export_qiskit_contains_circuit" \
+    0 "Exported Qiskit" \
+    "$BINARY" "$CIRCUITS/bell_state.qasm" 2 --export-qiskit=/tmp/qubby_bell.py
+if grep -q "QuantumCircuit" /tmp/qubby_bell.py 2>/dev/null; then
+    pass "export_qiskit_file_has_QuantumCircuit"
+else
+    fail "export_qiskit_file_has_QuantumCircuit"
+fi
+
+# 34. --export-cirq produces a Python file with 'import cirq'
+run_test "export_cirq_contains_circuit" \
+    0 "Exported Cirq" \
+    "$BINARY" "$CIRCUITS/bell_state.qasm" 2 --export-cirq=/tmp/qubby_bell_cirq.py
+if grep -q "import cirq" /tmp/qubby_bell_cirq.py 2>/dev/null; then
+    pass "export_cirq_file_has_import_cirq"
+else
+    fail "export_cirq_file_has_import_cirq"
+fi
+
+# 36. --repl with EOF (empty stdin) exits cleanly (code 0)
+run_test "repl_exits_cleanly_on_eof" \
+    0 "Bye" \
+    bash -c "echo '' | $BINARY --repl"
+
+# 37. --repl accepts qreg + h + measure and prints state
+run_test "repl_executes_instructions" \
+    0 "%" \
+    bash -c "printf 'h q[0]\n.quit\n' | $BINARY --repl 1"
+
+# 38. --repl .help prints command list
+run_test "repl_help_shows_commands" \
+    0 "\.quit" \
+    bash -c "printf '.help\n.quit\n' | $BINARY --repl"
+
+# 39. --repl .measure after X gate prints 1
+run_test "repl_measure_after_x_returns_one" \
+    0 "Measured: 1" \
+    bash -c "printf 'x q[0]\n.measure\n.quit\n' | $BINARY --repl 1"
+
+# 40. --repl .reset clears state back to ground
+run_test "repl_reset_clears_state" \
+    0 "Measured: 0" \
+    bash -c "printf 'x q[0]\n.reset\n.measure\n.quit\n' | $BINARY --repl 1"
+
+# 41. --repl .ascii draws circuit wires
+run_test "repl_ascii_draws_wires" \
+    0 "q\[0\]:" \
+    bash -c "printf 'h q[0]\n.ascii\n.quit\n' | $BINARY --repl 1"
+
+# 42. --repl .export-qiskit creates a file
+run_test "repl_export_qiskit_creates_file" \
+    0 "Exported Qiskit" \
+    bash -c "printf 'h q[0]\ncx q[0] q[1]\n.export-qiskit /tmp/repl_export.py\n.quit\n' | $BINARY --repl 2"
+
 echo ""
 echo "  Results: ${PASS} passed, ${FAIL} failed"
 echo ""

@@ -8,7 +8,7 @@
 NAME	:=	qubby
 
 CXX	:=	g++
-CXXFLAGS	:=	-std=c++20 -Wall -Wextra -Wpedantic
+CXXFLAGS	:=	-std=c++20 -Wall -Wextra -Wpedantic -Wno-comment
 OPTFLAGS	:=	-O2
 OMPFLAGS	:=	-fopenmp
 DEBUGFLAGS	:=	-g3 -fsanitize=address,undefined

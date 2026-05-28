@@ -12,6 +12,7 @@
     #include "QuantumState.hpp"
     #include "DensityMatrix.hpp"
     #include "NoiseModel.hpp"
+    #include "BlochSphere.hpp"
     #include <string>
 
 /**
@@ -66,6 +67,7 @@ class QuantumCircuit {
         struct GateRecord {
             std::string name;
             std::vector<int> qubits;
+            double param = 0.0;  ///< rotation angle for rx/ry/rz (radians); 0 for other gates
         };
 
         /** @brief Sequential log of every gate applied since the last `qreg` (or construction). */
@@ -151,6 +153,59 @@ class QuantumCircuit {
          * @throws std::runtime_error if numQubits > DM_MAX_QUBITS (density matrix too large).
          */
         void validNoise(double errorRate = 0.01);
+
+        /**
+         * @brief Parses and executes a single OpenQASM instruction string.
+         *
+         * Accepts the same instruction set as load() (without block comments).
+         * Trailing semicolons and line comments are stripped before parsing.
+         * Updates circuitLog on success so that draw(), exportQiskit(), and
+         * exportCirq() reflect all instructions applied in a REPL session.
+         *
+         * @param line A single OpenQASM instruction (e.g. `"h q[0]"` or `"cx q[0] q[1];"`).
+         * @throws std::runtime_error on unknown gate or malformed qubit index.
+         */
+        void executeInstruction(const std::string& line);
+
+        /**
+         * @brief Exports the circuit log as a Qiskit Python script.
+         *
+         * Writes a self-contained Python file that reconstructs the circuit using
+         * Qiskit, prints the ASCII diagram, and measures all qubits.
+         *
+         * @param filename Output file path (e.g. `"circuit.py"`).
+         * @throws std::runtime_error if the file cannot be opened.
+         */
+        void exportQiskit(const std::string& filename) const;
+
+        /**
+         * @brief Exports the circuit log as a Cirq Python script.
+         *
+         * Writes a self-contained Python file that reconstructs the circuit using
+         * Cirq, prints the circuit, and runs a statevector simulation.
+         *
+         * @param filename Output file path (e.g. `"circuit_cirq.py"`).
+         * @throws std::runtime_error if the file cannot be opened.
+         */
+        void exportCirq(const std::string& filename) const;
+
+        /**
+         * @brief Computes the Bloch sphere vector for qubit @p qubit.
+         *
+         * Delegates to BlochSphere::compute() on the internal QuantumState.
+         * Only valid when noise simulation is not active (pure state backend).
+         *
+         * @param qubit Qubit index (0-based).
+         * @return The Bloch vector and its norm.
+         * @throws std::runtime_error if noise is active or qubit out of range.
+         */
+        BlochSphere::BlochVector blochVector(int qubit) const;
+
+        /** @brief Returns the current number of qubits. */
+        int getNumQubits() const;
+
+        /** @brief Returns true when noise simulation (density matrix backend) is active. */
+        bool isNoisy() const;
 };
 
 #endif /* QUANTUMCIRCUIT_HPP_ */

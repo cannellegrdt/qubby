@@ -321,6 +321,9 @@ class QuantumState {
         void printState();
 
         void setAmplitude(int i, std::complex<double> val);
+
+        /** @brief Returns the number of qubits in this state. */
+        int getNumQubits() const;
 };
 
 #endif /* QUANTUMSTATE_HPP_ */
