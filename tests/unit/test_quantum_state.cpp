@@ -9,6 +9,7 @@
 #include <criterion/redirect.h>
 #include "QuantumState.hpp"
 #include "QuantumCircuit.hpp"
+#include "DensityMatrix.hpp"
 #include "QuantumFourierTransform.hpp"
 #include "Grover.hpp"
 #include "DeutschJozsa.hpp"
@@ -17,6 +18,7 @@
 #include "VariationalQuantumEigensolver.hpp"
 #include <cmath>
 #include <stdexcept>
+#include <numeric>
 
 static constexpr double EPS = 1e-9;
 
@@ -895,6 +897,174 @@ Test(simon, detects_period_s2_n3) {
     int s = simon.run(3, [](int x) { int y = x ^ 2; return x < y ? x : y; });
 
     cr_assert_eq(s, 2);
+}
+
+/* ── DensityMatrix: initialisation ────────────────────────────────────────── */
+
+Test(density_matrix, init_ground_state_diagonal) {
+    DensityMatrix dm;
+    dm.initialize(2);
+
+    cr_assert_float_eq(dm.getDiagonal(0), 1.0, EPS);
+    cr_assert_float_eq(dm.getDiagonal(1), 0.0, EPS);
+    cr_assert_float_eq(dm.getDiagonal(2), 0.0, EPS);
+    cr_assert_float_eq(dm.getDiagonal(3), 0.0, EPS);
+}
+
+Test(density_matrix, throws_above_qubit_limit) {
+    DensityMatrix dm;
+    cr_assert_throw(dm.initialize(DM_MAX_QUBITS + 1), std::runtime_error);
+}
+
+/* ── DensityMatrix: pure-state gates ──────────────────────────────────────── */
+
+Test(density_matrix, x_gate_flips_to_excited) {
+    DensityMatrix dm;
+    dm.initialize(1);
+    dm.xGate(0);
+
+    cr_assert_float_eq(dm.getDiagonal(0), 0.0, EPS);
+    cr_assert_float_eq(dm.getDiagonal(1), 1.0, EPS);
+}
+
+Test(density_matrix, x_gate_twice_is_identity) {
+    DensityMatrix dm;
+    dm.initialize(1);
+    dm.xGate(0);
+    dm.xGate(0);
+
+    cr_assert_float_eq(dm.getDiagonal(0), 1.0, EPS);
+    cr_assert_float_eq(dm.getDiagonal(1), 0.0, EPS);
+}
+
+Test(density_matrix, h_gate_creates_equal_superposition) {
+    DensityMatrix dm;
+    dm.initialize(1);
+    dm.hGate(0);
+
+    cr_assert_float_eq(dm.getDiagonal(0), 0.5, EPS);
+    cr_assert_float_eq(dm.getDiagonal(1), 0.5, EPS);
+}
+
+Test(density_matrix, h_gate_twice_is_identity) {
+    DensityMatrix dm;
+    dm.initialize(1);
+    dm.hGate(0);
+    dm.hGate(0);
+
+    cr_assert_float_eq(dm.getDiagonal(0), 1.0, EPS);
+    cr_assert_float_eq(dm.getDiagonal(1), 0.0, EPS);
+}
+
+Test(density_matrix, ry_pi_flips_state) {
+    /* Ry(π)|0⟩ = |1⟩ — tests gateRight with asymmetric m01≠m10 */
+    DensityMatrix dm;
+    dm.initialize(1);
+    dm.ryGate(M_PI, 0);
+
+    cr_assert_float_eq(dm.getDiagonal(0), 0.0, EPS);
+    cr_assert_float_eq(dm.getDiagonal(1), 1.0, EPS);
+}
+
+Test(density_matrix, cnot_creates_bell_state) {
+    DensityMatrix dm;
+    dm.initialize(2);
+    dm.hGate(0);
+    dm.cnotGate(0, 1);
+
+    cr_assert_float_eq(dm.getDiagonal(0), 0.5, EPS);
+    cr_assert_float_eq(dm.getDiagonal(1), 0.0, EPS);
+    cr_assert_float_eq(dm.getDiagonal(2), 0.0, EPS);
+    cr_assert_float_eq(dm.getDiagonal(3), 0.5, EPS);
+}
+
+/* ── DensityMatrix: noise channels ────────────────────────────────────────── */
+
+Test(density_matrix, bit_flip_correct_probs) {
+    /* |0⟩ + bit-flip(p=0.20) → 80% |0⟩, 20% |1⟩ */
+    DensityMatrix dm;
+    dm.initialize(1);
+    dm.applyBitFlip(0, 0.20);
+
+    cr_assert_float_eq(dm.getDiagonal(0), 0.80, EPS);
+    cr_assert_float_eq(dm.getDiagonal(1), 0.20, EPS);
+}
+
+Test(density_matrix, bit_flip_trace_preserved) {
+    DensityMatrix dm;
+    dm.initialize(1);
+    dm.applyBitFlip(0, 0.35);
+
+    cr_assert_float_eq(dm.getDiagonal(0) + dm.getDiagonal(1), 1.0, EPS);
+}
+
+Test(density_matrix, phase_flip_full_dephasing) {
+    /* |+⟩ + phase-flip(p=1) → |−⟩⟨−|, diagonal [0.5, 0.5] */
+    DensityMatrix dm;
+    dm.initialize(1);
+    dm.hGate(0);
+    dm.applyPhaseFlip(0, 1.0);
+
+    cr_assert_float_eq(dm.getDiagonal(0), 0.5, EPS);
+    cr_assert_float_eq(dm.getDiagonal(1), 0.5, EPS);
+}
+
+Test(density_matrix, phase_flip_trace_preserved) {
+    DensityMatrix dm;
+    dm.initialize(1);
+    dm.hGate(0);
+    dm.applyPhaseFlip(0, 0.40);
+
+    cr_assert_float_eq(dm.getDiagonal(0) + dm.getDiagonal(1), 1.0, EPS);
+}
+
+Test(density_matrix, depolarizing_correct_probs) {
+    /* depolarizing on |0⟩: diag[0] = 1 - 2p/3, diag[1] = 2p/3 */
+    DensityMatrix dm;
+    dm.initialize(1);
+    double p = 0.30;
+    dm.applyDepolarizing(0, p);
+
+    cr_assert_float_eq(dm.getDiagonal(0), 1.0 - 2.0 * p / 3.0, EPS);
+    cr_assert_float_eq(dm.getDiagonal(1), 2.0 * p / 3.0,       EPS);
+}
+
+Test(density_matrix, depolarizing_trace_preserved) {
+    DensityMatrix dm;
+    dm.initialize(1);
+    dm.applyDepolarizing(0, 0.45);
+
+    cr_assert_float_eq(dm.getDiagonal(0) + dm.getDiagonal(1), 1.0, EPS);
+}
+
+Test(density_matrix, depolarizing_multiple_gates_trace_preserved) {
+    /* Bell state + two depolarizing channels */
+    DensityMatrix dm;
+    dm.initialize(2);
+    dm.hGate(0);
+    dm.cnotGate(0, 1);
+    dm.applyDepolarizing(0, 0.10);
+    dm.applyDepolarizing(1, 0.10);
+
+    double trace = dm.getDiagonal(0) + dm.getDiagonal(1)
+                 + dm.getDiagonal(2) + dm.getDiagonal(3);
+    cr_assert_float_eq(trace, 1.0, EPS);
+}
+
+/* ── DensityMatrix: QuantumCircuit integration ─────────────────────────────── */
+
+Test(density_matrix, circuit_valid_noise_throws_above_limit) {
+    QuantumCircuit circuit(13);
+    cr_assert_throw(circuit.validNoise(0.01), std::runtime_error);
+}
+
+Test(density_matrix, circuit_noise_measure_in_range) {
+    QuantumCircuit circuit(2);
+    circuit.validNoise(0.01);
+    circuit.load("tests/functional/circuits/bell_state.qasm");
+    int result = circuit.measure();
+    cr_assert_geq(result, 0);
+    cr_assert_lt(result, 4);
 }
 
 Test(simon, detects_period_s4_n3) {

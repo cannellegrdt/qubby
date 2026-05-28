@@ -15,6 +15,7 @@
 #include <regex>
 #include <algorithm>
 #include <iostream>
+#include <cmath>
 
 QuantumCircuit::QuantumCircuit(int nbQubits) {
     state.initialize(nbQubits);
@@ -26,7 +27,15 @@ QuantumCircuit::QuantumCircuit(int nbQubits) {
  * Thin wrapper that delegates to QuantumState::measure().
  * The underlying state is collapsed after this call.
  */
+/**
+ * @details
+ * When noise is active, delegates to DensityMatrix::measure() which samples
+ * from the diagonal of ρ (Born rule for mixed states) and collapses to |result⟩⟨result|.
+ * When noise is inactive, delegates to QuantumState::measure() as before.
+ */
 int QuantumCircuit::measure() {
+    if (noiseActivated)
+        return dm.measure();
     return state.measure();
 }
 
@@ -91,6 +100,14 @@ double parseQubitIndexPar(std::string token) {
  * 7. For `ccx`: read three `q[N]` tokens (c0, c1, target) and call toffoliGate().
  * 8. For `qreg`: read one `q[N]` token and call initialize(N) to resize the state.
  * 9. Any other gate name throws std::runtime_error.
+
+ * When noiseActivated is true, every gate is dispatched to the DensityMatrix backend
+ * (dm) instead of QuantumState, and a depolarizing channel is applied to each affected
+ * qubit immediately after the gate. This models imperfect hardware where each physical
+ * gate introduces a small error with probability noiseModel.depolarizeRate.
+ *
+ * The circuitLog is always updated regardless of the noise mode, so draw() works in
+ * both pure and noisy modes.
  */
 void QuantumCircuit::load(std::string filename) {
     std::ifstream file(filename);
@@ -104,10 +121,27 @@ void QuantumCircuit::load(std::string filename) {
         {"x", [this](int q) { state.xGate(q); }},
         {"z", [this](int q) { state.zGate(q); }},
     };
+    std::unordered_map<std::string, std::function<void(int)>> dm_simple_gates = {
+        {"h", [this](int q) { dm.hGate(q); }},
+        {"x", [this](int q) { dm.xGate(q); }},
+        {"z", [this](int q) { dm.zGate(q); }},
+    };
     std::unordered_map<std::string, std::function<void(double, int)>> multi_gates = {
         {"rx", [this](double t, int q) { state.rxGate(t, q); }},
         {"ry", [this](double t, int q) { state.ryGate(t, q); }},
         {"rz", [this](double t, int q) { state.rzGate(t, q); }},
+    };
+    std::unordered_map<std::string, std::function<void(double, int)>> dm_multi_gates = {
+        {"rx", [this](double t, int q) { dm.rxGate(t, q); }},
+        {"ry", [this](double t, int q) { dm.ryGate(t, q); }},
+        {"rz", [this](double t, int q) { dm.rzGate(t, q); }},
+    };
+
+    auto applyNoise = [this](std::vector<int> qubits) {
+        if (!noiseActivated || noiseModel.depolarizeRate <= 0.0)
+            return;
+        for (int q : qubits)
+            dm.applyDepolarizing(q, noiseModel.depolarizeRate);
     };
 
     bool in_block_comment = false;
@@ -145,37 +179,69 @@ void QuantumCircuit::load(std::string filename) {
             auto it_simple = simple_gates.find(command);
             std::string base = command.substr(0, command.find('('));
             auto it_multi = multi_gates.find(base);
+
             if (it_simple != simple_gates.end()) {
-                it_simple->second(qubitIndex);
+                if (noiseActivated) {
+                    dm_simple_gates[command](qubitIndex);
+                    applyNoise({qubitIndex});
+                } else
+                    it_simple->second(qubitIndex);
                 circuitLog.push_back({command, {qubitIndex}});
+
             } else if (it_multi != multi_gates.end()) {
                 double theta = parseQubitIndexPar(command);
-                it_multi->second(theta, qubitIndex);
+                if (noiseActivated) {
+                    dm_multi_gates[base](theta, qubitIndex);
+                    applyNoise({qubitIndex});
+                } else
+                    it_multi->second(theta, qubitIndex);
                 circuitLog.push_back({base, {qubitIndex}});
+
             } else if (command == "cx") {
                 std::string token2;
                 iss >> token2;
                 int qubitIndex2 = parseQubitIndexPos(token2);
-                state.cnotGate(qubitIndex, qubitIndex2);
+                if (noiseActivated) {
+                    dm.cnotGate(qubitIndex, qubitIndex2);
+                    applyNoise({qubitIndex, qubitIndex2});
+                } else
+                    state.cnotGate(qubitIndex, qubitIndex2);
                 circuitLog.push_back({"cx", {qubitIndex, qubitIndex2}});
+
             } else if (command == "swap") {
                 std::string token2;
                 iss >> token2;
                 int qubitIndex2 = parseQubitIndexPos(token2);
-                state.swapGate(qubitIndex, qubitIndex2);
+                if (noiseActivated) {
+                    dm.swapGate(qubitIndex, qubitIndex2);
+                    applyNoise({qubitIndex, qubitIndex2});
+                } else
+                    state.swapGate(qubitIndex, qubitIndex2);
                 circuitLog.push_back({"swap", {qubitIndex, qubitIndex2}});
+
             } else if (command == "ccx") {
                 std::string token2, token3;
                 iss >> token2 >> token3;
                 int qubitIndex2 = parseQubitIndexPos(token2);
                 int qubitIndex3 = parseQubitIndexPos(token3);
-                state.toffoliGate(qubitIndex, qubitIndex2, qubitIndex3);
+                if (noiseActivated) {
+                    dm.toffoliGate(qubitIndex, qubitIndex2, qubitIndex3);
+                    applyNoise({qubitIndex, qubitIndex2, qubitIndex3});
+                } else
+                    state.toffoliGate(qubitIndex, qubitIndex2, qubitIndex3);
                 circuitLog.push_back({"ccx", {qubitIndex, qubitIndex2, qubitIndex3}});
+
             } else if (command == "qreg") {
                 int n = parseQubitIndexPos(token);
                 state.initialize(n);
                 numQubits = n;
                 circuitLog.clear();
+                if (noiseActivated) {
+                    if (n > DM_MAX_QUBITS)
+                        throw std::runtime_error(
+                            "Noise simulation limited to " + std::to_string(DM_MAX_QUBITS) + " qubits");
+                    dm.initialize(n);
+                }
             } else {
                 throw std::runtime_error("Gate " + command + " not found");
             }
@@ -201,9 +267,9 @@ void QuantumCircuit::load(std::string filename) {
  * uninvolved wires and `PIPE` for wires strictly between multi-qubit operands.
  */
 void QuantumCircuit::draw() {
-    static const std::string DASH  = "-";
-    static const std::string PIPE  = "│";
-    static const std::string DOT   = "●";
+    static const std::string DASH = "-";
+    static const std::string PIPE = "│";
+    static const std::string DOT = "●";
     static const std::string CROSS = "×";
 
     auto vw = [](const std::string& s) -> int {
@@ -214,14 +280,14 @@ void QuantumCircuit::draw() {
             else if (c < 0xE0) i += 2;
             else if (c < 0xF0) i += 3;
             else i += 4;
-            ++n;
+            n++;
         }
         return n;
     };
 
     auto rep = [](const std::string& ch, int n) {
         std::string r;
-        for (int i = 0; i < n; ++i)
+        for (int i = 0; i < n; i++)
             r += ch;
         return r;
     };
@@ -286,5 +352,29 @@ void QuantumCircuit::draw() {
 
 
 void QuantumCircuit::printState() {
+    if (noiseActivated) {
+        dm.printState();
+        return;
+    }
     state.printState();
+}
+
+/**
+ * @details
+ * Initialises the DensityMatrix backend to |0...0⟩⟨0...0| and activates the
+ * noise flag so that load() routes all subsequent gate applications through dm
+ * and appends a per-qubit depolarizing channel after each gate.
+ *
+ * Must be called before load() — gate applications that occurred before this call
+ * will not be reflected in the density matrix.
+ */
+void QuantumCircuit::validNoise(double errorRate) {
+    if (numQubits > DM_MAX_QUBITS)
+        throw std::runtime_error(
+            "Noise simulation limited to " + std::to_string(DM_MAX_QUBITS) +
+            " qubits (density matrix would require >" + std::to_string(1 << (2 * DM_MAX_QUBITS)) + " complex numbers)");
+    noiseModel.depolarizeRate = errorRate;
+    noiseModel.active = true;
+    dm.initialize(numQubits);
+    noiseActivated = true;
 }

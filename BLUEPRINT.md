@@ -72,9 +72,9 @@ To apply a gate to qubit $k$ without a $2^n \times 2^n$ matrix:
 * [x] **Variational Quantum Eigensolver (VQE):** Hybrid classical/quantum algorithm to find ground-state energies using parametric circuits.
 
 ### Phase 10: Realistic noise simulation
-* [ ] **Noise channels:** Model quantum decoherence with bit-flip, phase-flip, and depolarizing channels.
-* [ ] **Density matrix:** Replace the state vector with a density matrix to simulate mixed states.
-* [ ] **Imperfect gates:** Add an error parameter to gates to simulate real hardware noise.
+* [x] **Noise channels:** Model quantum decoherence with bit-flip, phase-flip, and depolarizing channels.
+* [x] **Density matrix:** Replace the state vector with a density matrix to simulate mixed states.
+* [x] **Imperfect gates:** Add an error parameter to gates to simulate real hardware noise.
 
 ### Phase 11: Visualisation & interoperability
 * [ ] **Bloch sphere:** Render a single-qubit state on the Bloch sphere (SVG or terminal graphics).

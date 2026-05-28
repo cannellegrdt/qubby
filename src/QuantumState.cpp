@@ -218,7 +218,7 @@ int QuantumState::measureQubit(int k) {
     double p1 = 0.0;
     int num_states = amplitudes.size();
 
-    for (int i = 0; i < num_states; ++i) {
+    for (int i = 0; i < num_states; i++) {
         if ((i >> k) & 1)
             p1 += std::norm(amplitudes[i]);
     }

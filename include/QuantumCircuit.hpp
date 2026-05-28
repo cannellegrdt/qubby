@@ -10,6 +10,8 @@
     #define QUANTUMCIRCUIT_HPP_
 
     #include "QuantumState.hpp"
+    #include "DensityMatrix.hpp"
+    #include "NoiseModel.hpp"
     #include <string>
 
 /**
@@ -38,6 +40,20 @@ class QuantumCircuit {
 
         /** @brief Number of qubits in the circuit (updated by `qreg`). */
         int numQubits;
+
+        /** @brief Whether noise simulation is active (set by validNoise()). */
+        bool noiseActivated = false;
+
+        /**
+         * @brief Density matrix used when noise simulation is active.
+         *
+         * Represents the noisy mixed state as a 2^n × 2^n complex matrix.
+         * Only initialised when validNoise() is called (limited to DM_MAX_QUBITS qubits).
+         */
+        DensityMatrix dm;
+
+        /** @brief Noise parameters (error rates per gate per qubit). */
+        NoiseModel noiseModel;
 
         /**
          * @struct GateRecord
@@ -120,6 +136,21 @@ class QuantumCircuit {
          * probability > 1e-6 are shown.
          */
         void printState();
+
+        /**
+         * @brief Activates noise simulation using a density matrix backend.
+         *
+         * Initialises a DensityMatrix to represent the circuit state as a mixed state.
+         * Must be called **before** load() so that gate applications are routed through
+         * the density matrix and the depolarizing channel is applied after each gate.
+         *
+         * The depolarizing channel is applied to every affected qubit after each gate,
+         * simulating imperfect hardware with the given per-gate error rate.
+         *
+         * @param errorRate  Per-gate depolarizing error probability in [0, 1] (default 0.01).
+         * @throws std::runtime_error if numQubits > DM_MAX_QUBITS (density matrix too large).
+         */
+        void validNoise(double errorRate = 0.01);
 };
 
 #endif /* QUANTUMCIRCUIT_HPP_ */

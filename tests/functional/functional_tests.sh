@@ -94,56 +94,89 @@ run_test "no_args_exits_nonzero" \
     1 "" \
     "$BINARY"
 
-# 10. Rx(π)|0⟩ = -i|1⟩ → probabilité 1, mesure toujours 1
+# 10. Rx(π)|0⟩ = -i|1⟩ → probability 1, measurement is always 1
 run_test "rx_pi_measures_one" \
     0 "Measurement: 1" \
     "$BINARY" "$CIRCUITS/rx_pi.qasm" 1
 
-# 11. Ry(π)|0⟩ = |1⟩ → mesure toujours 1
+# 11. Ry(π)|0⟩ = |1⟩ → measurement is always 1
 run_test "ry_pi_measures_one" \
     0 "Measurement: 1" \
     "$BINARY" "$CIRCUITS/ry_pi.qasm" 1
 
-# 12. Rz(π/2)|0⟩ : changement de phase uniquement, mesure toujours 0
+# 12. Rz(π/2)|0⟩: phase change only, measurement is always 0
 run_test "rz_on_ground_state_measures_zero" \
     0 "Measurement: 0" \
     "$BINARY" "$CIRCUITS/rz_ground.qasm" 1
 
-# 13. Commentaire bloc /* */ ignoré : seule la gate X s'exécute → mesure = 1
+# 13. Block comment /* */ is ignored: only the X gate runs → measurement = 1
 run_test "block_comment_ignored" \
     0 "Measurement: 1" \
     "$BINARY" "$CIRCUITS/block_comment.qasm" 1
 
-# 14. qreg réinitialise l'état puis X → mesure = 1
+# 14. qreg reinitialises the state, then X runs → measurement = 1
 run_test "qreg_reinitializes_state" \
     0 "Measurement: 1" \
     "$BINARY" "$CIRCUITS/qreg.qasm" 1
 
-# 15. Angle symbolique rx(pi) → Rx(π)|0⟩ = -i|1⟩ → mesure = 1
+# 15. Symbolic angle rx(pi) → Rx(π)|0⟩ = -i|1⟩ → measurement = 1
 run_test "rx_symbolic_pi_measures_one" \
     0 "Measurement: 1" \
     "$BINARY" "$CIRCUITS/rx_symbolic_pi.qasm" 1
 
-# 16. Angle symbolique ry(pi/2) → superposition équiprobable, résultat 0 ou 1
+# 16. Symbolic angle ry(pi/2) → equal superposition, result is 0 or 1
 run_test "ry_symbolic_pi_div2_valid_output" \
     0 "Measurement: 0|Measurement: 1" \
     "$BINARY" "$CIRCUITS/ry_symbolic_pi_div2.qasm" 1
 
-# 17. Commentaire bloc multi-lignes /* \n ... \n */ ignoré, X s'exécute → mesure = 1
+# 17. Multi-line block comment /* ... */ is ignored, X gate runs → measurement = 1
 run_test "multiline_block_comment_ignored" \
     0 "Measurement: 1" \
     "$BINARY" "$CIRCUITS/multiline_block_comment.qasm" 1
 
-# 18. Angle symbolique rx(pi*2) → Rx(2π)|0⟩ = -|0⟩ → mesure = 0
+# 18. Symbolic angle rx(pi*2) → Rx(2π)|0⟩ = -|0⟩ → measurement = 0
 run_test "rx_symbolic_pi_mult_measures_zero" \
     0 "Measurement: 0" \
     "$BINARY" "$CIRCUITS/rx_symbolic_pi_mult.qasm" 1
 
-# 19. Paramètre rx sans parenthèses → erreur de parsing
+# 19. Malformed rx angle (missing parentheses) → parsing error
 run_test "malformed_rx_angle_exits_nonzero" \
     1 "Error:" \
     "$BINARY" "$CIRCUITS/malformed_rx_angle.qasm" 1
 
+# 20. --noise produces a valid measurement (0 or 1 for a 1-qubit circuit)
+run_test "noise_x_gate_valid_measurement" \
+    0 "Measurement: 0|Measurement: 1" \
+    "$BINARY" "$CIRCUITS/x_gate.qasm" 1 --noise
+
+# 21. --noise on a Bell state (2 qubits) → valid measurement in 0..3
+run_test "noise_bell_state_valid_measurement" \
+    0 "Measurement: 0|Measurement: 1|Measurement: 2|Measurement: 3" \
+    "$BINARY" "$CIRCUITS/bell_state.qasm" 2 --noise
+
+# 22. --noise-rate=0.50 is accepted (high rate, but valid)
+run_test "noise_rate_high_accepted" \
+    0 "Measurement:" \
+    "$BINARY" "$CIRCUITS/x_gate.qasm" 1 --noise --noise-rate=0.50
+
+# 23. --noise --print displays percentages (output contains %)
+run_test "noise_print_shows_percentages" \
+    0 "%" \
+    "$BINARY" "$CIRCUITS/bell_state.qasm" 2 --noise --print
+
+# 24. --noise with >12 qubits → exit 1 + error message
+run_test "noise_too_many_qubits_exits_nonzero" \
+    1 "Error:" \
+    "$BINARY" "$CIRCUITS/x_gate.qasm" 13 --noise
+
+# 25. --noise --ascii draws the circuit wires (q[0]: ...) and produces a measurement
+run_test "noise_ascii_draw_shows_wires" \
+    0 "q\[0\]:" \
+    "$BINARY" "$CIRCUITS/bell_state.qasm" 2 --noise --ascii
+
+run_test "noise_ascii_draw_ends_with_measurement" \
+    0 "Measurement:" \
+    "$BINARY" "$CIRCUITS/bell_state.qasm" 2 --noise --ascii
 
 echo ""
 echo "  Results: ${PASS} passed, ${FAIL} failed"
